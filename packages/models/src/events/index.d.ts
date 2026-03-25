@@ -1,0 +1,6 @@
+/**
+ * @file index.ts
+ * @description Events module: event types, domain events, and validators
+ */
+export type { EventSeverity, EventPriority, EventChannel, EventSource, EventMetadata, DomainEvent, TypedEvent, PayloadOf, TypeOf, AnyDomainEvent, MessageSentEvent, MessageDeliveredEvent, MessageFailedEvent, MessageReadEvent, MessageRetriedEvent, PaymentInitiatedEvent, PaymentSucceededEvent, PaymentFailedEvent, PaymentReversedEvent, PaymentTimeoutEvent, SessionStartedEvent, SessionEndedEvent, RuleFiredEvent, RuleSkippedEvent, RuleErrorEvent, SimulationStartedEvent, SimulationCompletedEvent, SimulationResetEvent, } from "./domain-event.js";
+export { MESSAGE_SENT, MESSAGE_DELIVERED, MESSAGE_FAILED, MESSAGE_READ, MESSAGE_RETRIED, PAYMENT_INITIATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, PAYMENT_REVERSED, PAYMENT_TIMEOUT, SESSION_STARTED, SESSION_ENDED, USER_AUTHENTICATED, USER_DEAUTHENTICATED, RULE_FIRED, RULE_SKIPPED, RULE_ERROR, SIMULATION_STARTED, SIMULATION_PAUSED, SIMULATION_RESUMED, SIMULATION_COMPLETED, SIMULATION_RESET, RISK_THRESHOLD_BREACHED, RISK_FLAG_RAISED, RISK_FLAG_CLEARED, REVENUE_EARNED, REVENUE_LOST, REVENUE_ADJUSTED, ALL_EVENT_TYPES, isEventType, type EventType, } from "./event-types.js";

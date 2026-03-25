@@ -1,0 +1,15 @@
+{
+  "name": "lixeta-demo",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.0"
+  }
+}

@@ -1,0 +1,275 @@
+You are given a task to integrate an existing React component in the codebase
+
+The codebase should support:
+- shadcn project structure  
+- Tailwind CSS
+- Typescript
+
+If it doesn't, provide instructions on how to setup project via shadcn CLI, install Tailwind or Typescript.
+
+Determine the default path for components and styles. 
+If default path for components is not /components/ui, provide instructions on why it's important to create this folder
+Copy-paste this component to /components/ui folder:
+```tsx
+code-block.tsx
+'use client';
+
+import { CheckIcon, CopyIcon } from 'lucide-react';
+import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
+import { createContext, useContext, useState } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import {
+  oneDark,
+  oneLight,
+} from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Button } from '@/components/ui/button';
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+type CodeBlockContextType = {
+  code: string;
+};
+
+const CodeBlockContext = createContext<CodeBlockContextType>({
+  code: '',
+});
+
+export type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
+  code: string;
+  language: string;
+  showLineNumbers?: boolean;
+  children?: ReactNode;
+};
+
+export const CodeBlock = ({
+  code,
+  language,
+  showLineNumbers = false,
+  className,
+  children,
+  ...props
+}: CodeBlockProps) => (
+  <CodeBlockContext.Provider value={{ code }}>
+    <div
+      className={cn(
+        'relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+        className,
+      )}
+      {...props}
+    >
+      <div className="relative">
+        <SyntaxHighlighter
+          language={language}
+          style={oneLight}
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            fontSize: '0.875rem',
+            background: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))',
+          }}
+          showLineNumbers={showLineNumbers}
+          lineNumberStyle={{
+            color: 'hsl(var(--muted-foreground))',
+            paddingRight: '1rem',
+            minWidth: '2.5rem',
+          }}
+          codeTagProps={{
+            className: 'font-mono text-sm',
+          }}
+          className="dark:hidden overflow-hidden"
+        >
+          {code}
+        </SyntaxHighlighter>
+        <SyntaxHighlighter
+          language={language}
+          style={oneDark}
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            fontSize: '0.875rem',
+            background: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))',
+          }}
+          showLineNumbers={showLineNumbers}
+          lineNumberStyle={{
+            color: 'hsl(var(--muted-foreground))',
+            paddingRight: '1rem',
+            minWidth: '2.5rem',
+          }}
+          codeTagProps={{
+            className: 'font-mono text-sm',
+          }}
+          className="hidden dark:block overflow-hidden"
+        >
+          {code}
+        </SyntaxHighlighter>
+        {children && (
+          <div className="absolute right-2 top-2 flex items-center gap-2">
+            {children}
+          </div>
+        )}
+      </div>
+    </div>
+  </CodeBlockContext.Provider>
+);
+
+export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
+  onCopy?: () => void;
+  onError?: (error: Error) => void;
+  timeout?: number;
+};
+
+export const CodeBlockCopyButton = ({
+  onCopy,
+  onError,
+  timeout = 2000,
+  children,
+  className,
+  ...props
+}: CodeBlockCopyButtonProps) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const { code } = useContext(CodeBlockContext);
+
+  const copyToClipboard = async () => {
+    if (typeof window === 'undefined' || !navigator.clipboard.writeText) {
+      onError?.(new Error('Clipboard API not available'));
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(code);
+      setIsCopied(true);
+      onCopy?.();
+      setTimeout(() => setIsCopied(false), timeout);
+    } catch (error) {
+      onError?.(error as Error);
+    }
+  };
+
+  const Icon = isCopied ? CheckIcon : CopyIcon;
+
+  return (
+    <Button
+      className={cn('shrink-0', className)}
+      onClick={copyToClipboard}
+      size="icon"
+      variant="ghost"
+      {...props}
+    >
+      {children ?? <Icon size={14} />}
+    </Button>
+  );
+};
+
+
+demo.tsx
+import { CodeBlock, CodeBlockCopyButton } from '@/components/ui/code-block';
+
+export default function DemoOne() {
+  return (
+    <CodeBlock
+      code={`function greet(name) {
+  console.log("Hello, " + name + "!");
+}
+
+greet("World");`}
+      language="jsx"
+    >
+      <CodeBlockCopyButton
+        onCopy={() => console.log("Copied code to clipboard")}
+        onError={() => console.error("Failed to copy code to clipboard")}
+      />
+    </CodeBlock>
+  );
+}
+
+```
+
+Copy-paste these files for dependencies:
+```tsx
+shadcn/button
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    )
+  },
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }
+
+```
+
+Install NPM dependencies:
+```bash
+clsx, lucide-react, tailwind-merge, react-syntax-highlighter, @radix-ui/react-slot, class-variance-authority
+```
+
+Implementation Guidelines
+ 1. Analyze the component structure and identify all required dependencies
+ 2. Review the component's argumens and state
+ 3. Identify any required context providers or hooks and install them
+ 4. Questions to Ask
+ - What data/props will be passed to this component?
+ - Are there any specific state management requirements?
+ - Are there any required assets (images, icons, etc.)?
+ - What is the expected responsive behavior?
+ - What is the best place to use this component in the app?
+
+Steps to integrate
+ 0. Copy paste all the code above in the correct directories
+ 1. Install external dependencies
+ 2. Fill image assets with Unsplash stock images you know exist
+ 3. Use lucide-react icons for svgs or logos if component requires them

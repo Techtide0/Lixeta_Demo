@@ -1,0 +1,1547 @@
+openapi: "3.0.3"
+
+info:
+  title: Lixeta Sandbox API
+  version: "1.0.0"
+  description: |
+    The **Lixeta Sandbox API** is a real-time rules engine simulation platform.
+
+    Submit domain events → receive decisions instantly, with full audit trails,
+    revenue impact tracking, risk signals, and tamper-evident dispute packages.
+
+    ## Authentication
+
+    Protected endpoints accept an `X-Api-Key` header (`lxk_...` format).
+    In development mode (`REQUIRE_AUTH=false`) authentication is disabled.
+
+    ## Session lifecycle
+
+    ```
+    POST /session          → create a session, get sessionId
+    POST /trigger-event    → submit events, get decisions
+    GET  /analytics        → real-time KPIs
+    GET  /logs             → full audit trail
+    POST /dispute          → download evidence ZIP
+    POST /session/close    → close session
+    ```
+
+    ## Response envelope
+
+    All JSON responses use a consistent wrapper:
+    ```json
+    { "ok": true,  "requestId": "req_...", "timestamp": "...", "data": { ... } }
+    { "ok": false, "requestId": "req_...", "timestamp": "...", "error": { "code": "...", "message": "..." } }
+    ```
+
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+
+security: []
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tags
+# ──────────────────────────────────────────────────────────────────────────────
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes. Not rate-limited or auth-gated.
+  - name: Session
+    description: Session lifecycle — create, close, patch aggression, retrieve logs.
+  - name: Events
+    description: Submit domain events and receive engine decisions.
+  - name: Analytics
+    description: Real-time KPI analytics derived from session state. No caching.
+  - name: ISO 20022
+    description: Generate deterministic demo ISO 20022 payment messages.
+  - name: Dispute
+    description: Generate tamper-evident evidence ZIP packages for past decisions.
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Components
+# ──────────────────────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: |
+        API key in `lxk_<base64url>` format.
+        Required when `REQUIRE_AUTH=true`. Disabled by default in development.
+
+  schemas:
+
+    # ── Common ─────────────────────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      required: [ok, requestId, timestamp, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+          example: false
+        requestId:
+          type: string
+          example: "req_abc123"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:00:00.000Z"
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "sessionId is required."
+            details:
+              type: object
+              additionalProperties: true
+              description: Optional structured details (field errors, etc.)
+
+    # ── Session ────────────────────────────────────────────────────────────────
+
+    SessionMetadata:
+      type: object
+      description: Arbitrary metadata attached to a session.
+      properties:
+        label:
+          type: string
+          maxLength: 128
+          example: "Sandbox Session"
+        environment:
+          type: string
+          maxLength: 64
+          example: "development"
+        ownerId:
+          type: string
+          maxLength: 128
+          example: "user_123"
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 64
+          example: ["sandbox-ui", "demo"]
+
+    SessionCreatedData:
+      type: object
+      required: [sessionId, createdAt, expiresAt, status]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^sess_[A-Za-z0-9_]+$"
+          example: "sess_ABCDEFGHJKMNPabcde"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:00:00.000Z"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T14:00:00.000Z"
+        status:
+          type: string
+          enum: [active, completed, expired]
+          example: "active"
+        metadata:
+          $ref: "#/components/schemas/SessionMetadata"
+
+    SessionClosedData:
+      type: object
+      required: [sessionId, status, closedAt, totalEvents, totalDecisions]
+      properties:
+        sessionId:
+          type: string
+          example: "sess_ABCDEFGHJKMNPabcde"
+        status:
+          type: string
+          enum: [completed]
+          example: "completed"
+        closedAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:05:00.000Z"
+        totalEvents:
+          type: integer
+          example: 12
+        totalDecisions:
+          type: integer
+          example: 12
+
+    AggressionUpdatedData:
+      type: object
+      required: [sessionId, aggressionLevel, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          example: "sess_ABCDEFGHJKMNPabcde"
+        aggressionLevel:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 75
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:01:00.000Z"
+
+    # ── Events ─────────────────────────────────────────────────────────────────
+
+    EventSource:
+      type: object
+      required: [id, name, version, channel]
+      properties:
+        id:
+          type: string
+          example: "sandbox-ui"
+        name:
+          type: string
+          example: "Sandbox UI"
+        version:
+          type: string
+          example: "1.0.0"
+        channel:
+          type: string
+          enum: [sms, whatsapp, email, push, in_app, api, internal, unknown]
+          example: "api"
+
+    TriggerEventRequest:
+      type: object
+      required: [sessionId, type, payload]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^sess_[A-Za-z0-9_]+$"
+          example: "sess_ABCDEFGHJKMNPabcde"
+        type:
+          type: string
+          maxLength: 128
+          description: |
+            Domain event type. Supported values:
+            `message.sent`, `message.delivered`, `message.failed`, `message.read`, `message.retried`,
+            `payment.initiated`, `payment.succeeded`, `payment.failed`, `payment.reversed`, `payment.timeout`,
+            `user.authenticated`, `user.login`, `user.deauthenticated`,
+            `session.started`, `session.ended`,
+            `risk.flag_raised`, `risk.threshold_breached`, `risk.flag_cleared`,
+            `simulation.started`, `simulation.completed`,
+            `revenue.earned`, `revenue.lost`
+          example: "payment.initiated"
+        timestamp:
+          type: string
+          format: date-time
+          description: Defaults to server time if omitted.
+          example: "2026-03-25T12:00:00.000Z"
+        correlationId:
+          type: string
+          description: Optional correlation ID for cross-system tracing.
+          example: "corr_abc123"
+        source:
+          $ref: "#/components/schemas/EventSource"
+        payload:
+          type: object
+          additionalProperties: true
+          description: Event-specific payload. Shape varies by event type.
+          example:
+            paymentId: "pay_1234567890"
+            amount: 150000
+
+    DecisionSummary:
+      type: object
+      required: [id, verdict, reason, confidence, executionMs]
+      properties:
+        id:
+          type: string
+          example: "dec_req_abc123_s1"
+        verdict:
+          type: string
+          enum: [allow, block, flag, defer, error]
+          example: "allow"
+        reason:
+          type: string
+          example: "All rules passed. Payment authorised."
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.97
+        executionMs:
+          type: integer
+          example: 3
+
+    RevenueEvent:
+      type: object
+      description: A revenue impact event produced by a rule action.
+      properties:
+        triggeringEventId:
+          type: string
+          example: "evt_req_abc123_s1"
+        category:
+          type: string
+          example: "sms_saved"
+        direction:
+          type: string
+          enum: [gain, loss]
+          example: "gain"
+        amount:
+          type: object
+          properties:
+            amountMinorUnits:
+              type: integer
+              description: Amount in minor currency units (e.g. kobo for NGN).
+              example: 5000
+            currency:
+              type: string
+              example: "NGN"
+        description:
+          type: string
+          example: "SMS notification suppressed — in-app delivery confirmed"
+
+    RiskEvent:
+      type: object
+      description: A risk signal produced during engine evaluation.
+      properties:
+        triggeringEventId:
+          type: string
+          example: "evt_req_abc123_s1"
+        category:
+          type: string
+          example: "geo_anomaly"
+          description: One of geo_anomaly, velocity_breach, pattern_deviation, timezone_anomaly, sla_breach
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: "high"
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.82
+        description:
+          type: string
+          example: "Device country (GB) does not match account country (NG)"
+
+    RuleTraceCondition:
+      type: object
+      properties:
+        field:
+          type: string
+          example: "payload.appOpen"
+        operator:
+          type: string
+          example: "equals"
+        expected:
+          type: string
+          example: "true"
+        actual:
+          type: string
+          example: "true"
+        passed:
+          type: boolean
+          example: true
+
+    RuleTraceAction:
+      type: object
+      properties:
+        actionType:
+          type: string
+          example: "route_to_in_app"
+        executed:
+          type: boolean
+          example: true
+
+    RuleTrace:
+      type: object
+      description: Per-rule execution trace from the engine.
+      properties:
+        ruleId:
+          type: string
+          example: "smart-notification"
+        ruleName:
+          type: string
+          example: "Smart Notification Router"
+        ruleVersion:
+          type: string
+          example: "1.0.0"
+        triggeringEventId:
+          type: string
+          example: "evt_req_abc123_s1"
+        outcome:
+          type: string
+          enum: [matched, not_matched, skipped, error]
+          example: "matched"
+        explanation:
+          type: string
+          example: "App is open — routing to in-app channel"
+        executionTimeMs:
+          type: integer
+          example: 1
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleTraceCondition"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleTraceAction"
+
+    TriggerEventData:
+      type: object
+      required: [sessionId, sequenceNumber, decision, revenueEvents, riskEvents, ruleTraces, meta]
+      properties:
+        sessionId:
+          type: string
+          example: "sess_ABCDEFGHJKMNPabcde"
+        sequenceNumber:
+          type: integer
+          example: 1
+        decision:
+          $ref: "#/components/schemas/DecisionSummary"
+        revenueEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueEvent"
+        riskEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskEvent"
+        ruleTraces:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleTrace"
+        meta:
+          type: object
+          properties:
+            traceTruncated:
+              type: boolean
+              example: false
+            appliedRuleCount:
+              type: integer
+              example: 2
+            totalSessionEvents:
+              type: integer
+              example: 1
+
+    # ── Logs ───────────────────────────────────────────────────────────────────
+
+    SessionCounters:
+      type: object
+      properties:
+        totalEventsProcessed:
+          type: integer
+          example: 12
+        totalDecisions:
+          type: integer
+          example: 12
+        allowCount:
+          type: integer
+          example: 9
+        blockCount:
+          type: integer
+          example: 1
+        flagCount:
+          type: integer
+          example: 2
+        deferCount:
+          type: integer
+          example: 0
+        errorCount:
+          type: integer
+          example: 0
+
+    LogsData:
+      type: object
+      required: [session, pagination, events, revenueEvents, riskEvents, ruleTraces, decisions]
+      properties:
+        session:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              example: "sess_ABCDEFGHJKMNPabcde"
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            expiresAt:
+              type: string
+              format: date-time
+            status:
+              type: string
+              enum: [active, completed, expired]
+              example: "active"
+            counters:
+              $ref: "#/components/schemas/SessionCounters"
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 12
+            offset:
+              type: integer
+              example: 0
+            limit:
+              type: integer
+              example: 100
+            returned:
+              type: integer
+              example: 12
+            hasMore:
+              type: boolean
+              example: false
+        events:
+          type: array
+          description: Full DomainEvent objects in chronological order.
+          items:
+            type: object
+            additionalProperties: true
+        revenueEvents:
+          type: array
+          description: Revenue events correlated to the paginated events.
+          items:
+            $ref: "#/components/schemas/RevenueEvent"
+        riskEvents:
+          type: array
+          description: Risk events correlated to the paginated events.
+          items:
+            $ref: "#/components/schemas/RiskEvent"
+        ruleTraces:
+          type: array
+          description: Rule execution traces correlated to the paginated events.
+          items:
+            $ref: "#/components/schemas/RuleTrace"
+        decisions:
+          type: array
+          description: Decision results correlated to the paginated events.
+          items:
+            type: object
+            additionalProperties: true
+
+    # ── Analytics ──────────────────────────────────────────────────────────────
+
+    AnalyticsRevenue:
+      type: object
+      properties:
+        totalGainMinorUnits:
+          type: integer
+          example: 50000
+        totalLossMinorUnits:
+          type: integer
+          example: 10000
+        netMinorUnits:
+          type: integer
+          example: 40000
+        currency:
+          type: string
+          example: "NGN"
+        eventCount:
+          type: integer
+          example: 5
+        categoryBreakdown:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              gain:
+                type: integer
+              loss:
+                type: integer
+
+    AnalyticsRisk:
+      type: object
+      properties:
+        totalSignalCount:
+          type: integer
+          example: 2
+        criticalCount:
+          type: integer
+          example: 0
+        highCount:
+          type: integer
+          example: 1
+        mediumCount:
+          type: integer
+          example: 1
+        lowCount:
+          type: integer
+          example: 0
+        averageScore:
+          type: number
+          example: 0.65
+        categoryBreakdown:
+          type: object
+          additionalProperties:
+            type: integer
+
+    AnalyticsEvents:
+      type: object
+      properties:
+        totalEventCount:
+          type: integer
+          example: 10
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+        byVerdict:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            allow: 8
+            block: 1
+            flag: 1
+
+    AnalyticsRules:
+      type: object
+      properties:
+        totalTraceCount:
+          type: integer
+          example: 20
+        matchRate:
+          type: number
+          example: 0.85
+        byRule:
+          type: object
+          additionalProperties:
+            type: object
+
+    SessionAnalyticsData:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          example: "sess_ABCDEFGHJKMNPabcde"
+        sessionStatus:
+          type: string
+          enum: [active, completed, expired]
+          example: "active"
+        revenue:
+          $ref: "#/components/schemas/AnalyticsRevenue"
+        risk:
+          $ref: "#/components/schemas/AnalyticsRisk"
+        events:
+          $ref: "#/components/schemas/AnalyticsEvents"
+        rules:
+          $ref: "#/components/schemas/AnalyticsRules"
+
+    # ── ISO 20022 ──────────────────────────────────────────────────────────────
+
+    IsoData:
+      type: object
+      required: [mode, isoType, msgId, endToEndId, xml, generatedAt, inputHash, formattedAmount, currency, latencyMs]
+      properties:
+        mode:
+          type: string
+          enum: [success, kill]
+          example: "success"
+        isoType:
+          type: string
+          example: "pacs.008.001.08"
+        msgId:
+          type: string
+          example: "MSG-20260325-ABCDEF123456"
+        endToEndId:
+          type: string
+          example: "E2E-20260325-ABCDEF123456"
+        xml:
+          type: string
+          description: Full ISO 20022 XML document.
+          example: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>..."
+        generatedAt:
+          type: string
+          format: date-time
+        inputHash:
+          type: string
+          description: SHA-256 of the input parameters. Recompute to verify integrity.
+          example: "a3f8c2d1e4b5f6a7b8c9d0e1f2a3b4c5"
+        formattedAmount:
+          type: string
+          example: "₦1,500.00"
+        currency:
+          type: string
+          example: "NGN"
+        latencyMs:
+          type: integer
+          example: 8
+        returnCode:
+          type: string
+          description: "Kill mode only: ISO return code."
+          example: "AM04"
+        returnReason:
+          type: string
+          description: "Kill mode only: human-readable return reason."
+          example: "Sender account has insufficient funds to complete the transfer"
+        originalMsgId:
+          type: string
+          description: "Kill mode only: original message ID being returned."
+          example: "MSG-00000000"
+
+    # ── Health ─────────────────────────────────────────────────────────────────
+
+    HealthData:
+      type: object
+      required: [status, service, version, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: "ok"
+        service:
+          type: string
+          example: "sandbox-gateway"
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:00:00.000Z"
+
+    HealthReadyData:
+      type: object
+      required: [status, service, engine, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ready]
+          example: "ready"
+        service:
+          type: string
+          example: "sandbox-gateway"
+        engine:
+          type: string
+          example: "rules-engine@1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-25T12:00:00.000Z"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Paths
+# ──────────────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness check
+      description: |
+        Returns `ok` if the process is alive. Used by load balancers and orchestrators.
+        No auth, no rate limiting.
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/HealthData"
+              example:
+                ok: true
+                requestId: "liveness"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                data:
+                  status: "ok"
+                  service: "sandbox-gateway"
+                  version: "1.0.0"
+                  timestamp: "2026-03-25T12:00:00.000Z"
+
+  /health/ready:
+    get:
+      operationId: getHealthReady
+      summary: Readiness check
+      description: |
+        Returns `ready` only once the rules engine has initialised successfully.
+        Returns `503` if called before the engine is ready.
+        No auth, no rate limiting.
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is ready to accept traffic.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: "#/components/schemas/HealthReadyData"
+              example:
+                ok: true
+                requestId: "readiness"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                data:
+                  status: "ready"
+                  service: "sandbox-gateway"
+                  engine: "rules-engine@1.0.0"
+                  timestamp: "2026-03-25T12:00:00.000Z"
+        "503":
+          description: Engine has not yet initialised.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                ok: false
+                requestId: "readiness"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                error:
+                  code: "NOT_READY"
+                  message: "Engine is still initialising. Retry shortly."
+
+  # ── Session ─────────────────────────────────────────────────────────────────
+
+  /session:
+    post:
+      operationId: createSession
+      summary: Create simulation session
+      description: |
+        Opens a new session and returns a `sessionId`. All subsequent calls to
+        `/trigger-event`, `/logs`, and `/analytics` require this ID.
+
+        Sessions auto-expire after `ttlSeconds` (default 2 hours, maximum 24 hours).
+        Use `POST /session/close` to close a session early.
+      tags: [Session]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata:
+                  $ref: "#/components/schemas/SessionMetadata"
+                ttlSeconds:
+                  type: integer
+                  minimum: 60
+                  maximum: 86400
+                  default: 7200
+                  description: Session TTL in seconds (60–86400). Default 7200 (2 hours).
+                  example: 7200
+                scenarioId:
+                  type: string
+                  maxLength: 128
+                  description: Optional scenario identifier for grouping test runs.
+                  example: "diaspora_fraud_test"
+                scenarioName:
+                  type: string
+                  maxLength: 256
+                  description: Human-readable scenario name.
+                  example: "Diaspora Fraud Detection — Velocity Test"
+            example:
+              metadata:
+                label: "Sandbox Session"
+                environment: "development"
+                tags: ["sandbox-ui"]
+              ttlSeconds: 7200
+      responses:
+        "201":
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/SessionCreatedData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                data:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  createdAt: "2026-03-25T12:00:00.000Z"
+                  expiresAt: "2026-03-25T14:00:00.000Z"
+                  status: "active"
+                  metadata:
+                    label: "Sandbox Session"
+                    environment: "development"
+                    tags: ["sandbox-ui"]
+        "400":
+          description: Invalid request body (bad metadata, invalid ttlSeconds, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Session capacity exceeded. Retry after closing unused sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/close:
+    post:
+      operationId: closeSession
+      summary: Close session
+      description: |
+        Marks a session as `completed`. After closure:
+        - No new events are accepted (returns 409)
+        - The session remains readable via `GET /logs` until its TTL expires
+        - Useful for clean teardown in automated test suites
+      tags: [Session]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                  pattern: "^sess_[A-Za-z0-9_]+$"
+                  example: "sess_ABCDEFGHJKMNPabcde"
+            example:
+              sessionId: "sess_ABCDEFGHJKMNPabcde"
+      responses:
+        "200":
+          description: Session closed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: "#/components/schemas/SessionClosedData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:05:00.000Z"
+                data:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  status: "completed"
+                  closedAt: "2026-03-25T12:05:00.000Z"
+                  totalEvents: 12
+                  totalDecisions: 12
+        "400":
+          description: Missing or invalid sessionId.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found or already expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Session is already closed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/aggression:
+    patch:
+      operationId: setAggressionLevel
+      summary: Set engine aggression level
+      description: |
+        Updates the rules engine's aggression level for a session (0–100).
+        Changes take effect immediately for the next `POST /trigger-event` call.
+
+        | Level | Behaviour |
+        |-------|-----------|
+        | **0** (Conservative) | Active hours: 10:00–18:00 · Velocity threshold: 5 payments |
+        | **50** (Balanced — default) | Active hours: 08:00–20:00 · Velocity threshold: 3 payments |
+        | **100** (Aggressive) | Active hours: always · Velocity threshold: 2 payments |
+      tags: [Session]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, level]
+              properties:
+                sessionId:
+                  type: string
+                  pattern: "^sess_[A-Za-z0-9_]+$"
+                  example: "sess_ABCDEFGHJKMNPabcde"
+                level:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  example: 75
+            example:
+              sessionId: "sess_ABCDEFGHJKMNPabcde"
+              level: 75
+      responses:
+        "200":
+          description: Aggression level updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: "#/components/schemas/AggressionUpdatedData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:01:00.000Z"
+                data:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  aggressionLevel: 75
+                  updatedAt: "2026-03-25T12:01:00.000Z"
+        "400":
+          description: Invalid sessionId or level out of [0, 100] range.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Session is already closed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Events ──────────────────────────────────────────────────────────────────
+
+  /trigger-event:
+    post:
+      operationId: triggerEvent
+      summary: Submit event for engine evaluation
+      description: |
+        Submits a domain event to the rules engine within a session context.
+
+        The engine evaluates the event against all active rules and returns:
+        - A **decision**: `allow` · `block` · `flag` · `defer` · `error`
+        - **Revenue events**: gains (e.g. SMS cost saved) or losses
+        - **Risk events**: geo anomalies, velocity breaches, etc.
+        - **Rule traces**: full per-rule execution details (conditions, actions)
+
+        ### Reproducibility
+        The engine is deterministic — given the same event payload and the same
+        aggression level, it will always produce the same verdict.
+        Use `POST /dispute` to generate a cryptographic proof of any decision.
+
+        ### Payload shapes by event type
+
+        **payment.initiated**: `{ paymentId, amount (kobo) }`
+
+        **message.sent**: `{ messageId, recipientPhone, appOpen (bool) }` — set `appOpen: true`
+        to trigger the Smart Notification rule and generate `sms_saved` revenue.
+
+        **user.authenticated** / **user.login**: `{ userId, deviceCountry, accountCountry,
+        deviceTimezone, accountTimezone }` — mismatched country/timezone triggers the
+        Diaspora Risk rule.
+      tags: [Events]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerEventRequest"
+            examples:
+              payment_initiated:
+                summary: "Payment initiated (allow)"
+                value:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  type: "payment.initiated"
+                  timestamp: "2026-03-25T12:00:00.000Z"
+                  source:
+                    id: "sandbox-ui"
+                    name: "Sandbox UI"
+                    version: "1.0.0"
+                    channel: "api"
+                  payload:
+                    paymentId: "pay_1234567890"
+                    amount: 150000
+              message_sent_app_open:
+                summary: "Message sent — app open (sms_saved gain)"
+                value:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  type: "message.sent"
+                  timestamp: "2026-03-25T12:00:00.000Z"
+                  source:
+                    id: "sandbox-ui"
+                    name: "Sandbox UI"
+                    version: "1.0.0"
+                    channel: "api"
+                  payload:
+                    messageId: "msg_1234567890"
+                    recipientPhone: "+2348100000000"
+                    appOpen: true
+              diaspora_risk:
+                summary: "User login from abroad (geo anomaly risk)"
+                value:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  type: "user.login"
+                  timestamp: "2026-03-25T12:00:00.000Z"
+                  source:
+                    id: "sandbox-ui"
+                    name: "Sandbox UI"
+                    version: "1.0.0"
+                    channel: "api"
+                  payload:
+                    userId: "usr_1234567890"
+                    deviceCountry: "US"
+                    accountCountry: "NG"
+                    deviceTimezone: "America/New_York"
+                    accountTimezone: "Africa/Lagos"
+      responses:
+        "200":
+          description: Event evaluated. Decision returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/TriggerEventData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:00:00.500Z"
+                data:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  sequenceNumber: 1
+                  decision:
+                    id: "dec_req_abc123_s1"
+                    verdict: "allow"
+                    reason: "All rules passed. Payment authorised."
+                    confidence: 0.97
+                    executionMs: 3
+                  revenueEvents:
+                    - triggeringEventId: "evt_req_abc123_s1"
+                      category: "sms_saved"
+                      direction: "gain"
+                      amount:
+                        amountMinorUnits: 5000
+                        currency: "NGN"
+                      description: "SMS notification suppressed — in-app delivery confirmed"
+                  riskEvents: []
+                  ruleTraces:
+                    - ruleId: "smart-notification"
+                      ruleName: "Smart Notification Router"
+                      ruleVersion: "1.0.0"
+                      triggeringEventId: "evt_req_abc123_s1"
+                      outcome: "matched"
+                      explanation: "App is open — routing to in-app channel"
+                      executionTimeMs: 1
+                      conditions:
+                        - field: "payload.appOpen"
+                          operator: "equals"
+                          expected: "true"
+                          actual: "true"
+                          passed: true
+                      actions:
+                        - actionType: "route_to_in_app"
+                          executed: true
+                  meta:
+                    traceTruncated: false
+                    appliedRuleCount: 2
+                    totalSessionEvents: 1
+        "400":
+          description: Validation error — bad body shape or invalid session ID format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Session is closed or paused and no longer accepts events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Logs ────────────────────────────────────────────────────────────────────
+
+  /logs:
+    get:
+      operationId: getLogs
+      summary: Retrieve session audit log
+      description: |
+        Returns all events, decisions, revenue events, risk events, and rule traces
+        for a session — in chronological order.
+
+        Supports pagination (`limit` / `offset`) and event type filtering.
+        Accessing this endpoint increments the session's `accessCount` counter.
+      tags: [Session]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: The session ID to retrieve logs for.
+          schema:
+            type: string
+            pattern: "^sess_[A-Za-z0-9_]+$"
+          example: "sess_ABCDEFGHJKMNPabcde"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of events to return (1–1000, default 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          description: Number of events to skip for pagination (default 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: filter
+          in: query
+          required: false
+          description: Filter by exact event type (e.g. `payment.initiated`).
+          schema:
+            type: string
+          example: "payment.initiated"
+      responses:
+        "200":
+          description: Session logs returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/LogsData"
+        "400":
+          description: Missing or invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Analytics ────────────────────────────────────────────────────────────────
+
+  /analytics:
+    get:
+      operationId: getAnalytics
+      summary: Compute session analytics
+      description: |
+        Derives real-time analytics from session state. **No caching** — every call
+        recomputes from current state, so values are always up to date.
+
+        Pass a **single session ID** for a `SessionAnalytics` response.
+        Pass a **comma-separated list** of up to 10 IDs for `MultiSessionAnalytics`.
+
+        Sessions not found are reported in a `notFound[]` array rather than causing
+        a 404. This prevents timing-based enumeration attacks.
+      tags: [Analytics]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: |
+            Single session ID or comma-separated list of up to 10 IDs.
+            Examples: `sess_abc` · `sess_abc,sess_def,sess_ghi`
+          schema:
+            type: string
+          example: "sess_ABCDEFGHJKMNPabcde"
+      responses:
+        "200":
+          description: Analytics computed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/SessionAnalyticsData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                data:
+                  sessionId: "sess_ABCDEFGHJKMNPabcde"
+                  sessionStatus: "active"
+                  revenue:
+                    totalGainMinorUnits: 50000
+                    totalLossMinorUnits: 10000
+                    netMinorUnits: 40000
+                    currency: "NGN"
+                    eventCount: 5
+                  risk:
+                    totalSignalCount: 2
+                    criticalCount: 0
+                    highCount: 1
+                    mediumCount: 1
+                    lowCount: 0
+                    averageScore: 0.65
+                  events:
+                    totalEventCount: 10
+                    byVerdict:
+                      allow: 8
+                      block: 1
+                      flag: 1
+                  rules:
+                    totalTraceCount: 20
+                    matchRate: 0.85
+        "400":
+          description: Missing or invalid sessionId parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: None of the requested sessions were found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── ISO 20022 ────────────────────────────────────────────────────────────────
+
+  /iso/pacs008:
+    get:
+      operationId: generateIsoMessage
+      summary: Generate ISO 20022 message
+      description: |
+        Generates a deterministic demo ISO 20022 payment message.
+
+        | Mode | Message type | Scenario |
+        |------|-------------|---------|
+        | `success` | `pacs.008.001.08` | Customer Credit Transfer — ₦1,500.00 NGN |
+        | `kill` | `pacs.004.001.09` | Payment Return — return code `AM04` (Insufficient Funds) |
+
+        The output is **deterministic**: same mode → same XML → same `inputHash`.
+        Verify integrity by recomputing the SHA-256 of the input parameters and
+        comparing against `inputHash`.
+      tags: [ISO 20022]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          description: "`success` for a credit transfer, `kill` for a payment return."
+          schema:
+            type: string
+            enum: [success, kill]
+          example: "success"
+      responses:
+        "200":
+          description: ISO 20022 message generated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  requestId:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/IsoData"
+              example:
+                ok: true
+                requestId: "req_abc123"
+                timestamp: "2026-03-25T12:00:00.000Z"
+                data:
+                  mode: "success"
+                  isoType: "pacs.008.001.08"
+                  msgId: "MSG-20260325-ABCDEF123456"
+                  endToEndId: "E2E-20260325-ABCDEF123456"
+                  xml: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Document>...</Document>"
+                  generatedAt: "2026-03-25T12:00:00.000Z"
+                  inputHash: "a3f8c2d1e4b5f6a7b8c9d0e1f2a3b4c5"
+                  formattedAmount: "₦1,500.00"
+                  currency: "NGN"
+                  latencyMs: 8
+        "400":
+          description: Invalid `mode` parameter — must be `success` or `kill`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Dispute ──────────────────────────────────────────────────────────────────
+
+  /dispute:
+    post:
+      operationId: generateDisputePackage
+      summary: Generate dispute evidence package
+      description: |
+        Generates a tamper-evident evidence ZIP for a past decision.
+
+        The ZIP contains four files:
+
+        | File | Contents |
+        |------|---------|
+        | `rule-trace.json` | Verdict, reason, all rule traces, revenue impact, risk signals, aggression level |
+        | `api-trace.json` | Original request/response + replay instructions |
+        | `handshake.json` | System version, session config, source fingerprint (no raw API keys) |
+        | `hash.txt` | SHA-256 of each file + a combined manifest hash |
+
+        ### Tamper verification
+        Recompute `SHA-256` of any file and compare against `hash.txt`.
+        Any mismatch proves tampering.
+
+        ### Reproducibility
+        The package is **deterministic**: same session state → same file contents
+        → same hashes. Replaying `api-trace.json` through `POST /trigger-event`
+        must produce an identical decision (same verdict, same engine version).
+
+        ### Security
+        API keys are never included. The `handshake.json` contains only a
+        **SHA-256 fingerprint** of the source ID (first 16 hex chars).
+      tags: [Dispute]
+      security:
+        - ApiKeyAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, eventId]
+              properties:
+                sessionId:
+                  type: string
+                  pattern: "^sess_[A-Za-z0-9_]+$"
+                  example: "sess_ABCDEFGHJKMNPabcde"
+                eventId:
+                  type: string
+                  description: The event ID from the trigger-event response or GET /logs.
+                  example: "evt_req_abc123_s1"
+            example:
+              sessionId: "sess_ABCDEFGHJKMNPabcde"
+              eventId: "evt_req_abc123_s1"
+      responses:
+        "200":
+          description: |
+            Dispute evidence ZIP file.
+
+            `Content-Type: application/zip`
+
+            `Content-Disposition: attachment; filename="dispute_<eventId>.zip"`
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing or invalid `sessionId` / `eventId`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session or event not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: ZIP generation failed (internal error).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
