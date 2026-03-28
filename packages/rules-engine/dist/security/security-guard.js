@@ -35,36 +35,46 @@ const DANGEROUS_KEY_PREFIX = "__";
  * This is a defence-in-depth measure. Rules should never reach into raw
  * payload keys that start with "__", but we strip them anyway.
  */
+/**
+ * Sanitize a single value of any type.
+ * Plain objects are recursively sanitized; arrays are mapped over so nested
+ * objects and arrays-within-arrays are all covered. Primitives pass through.
+ */
+function sanitizeValue(value, depth) {
+    if (value === null || typeof value !== "object")
+        return value;
+    if (Array.isArray(value)) {
+        // Recurse into arrays without consuming a depth level — depth only
+        // increments when we enter a plain object.
+        return value.map((item) => sanitizeValue(item, depth));
+    }
+    if (Object.getPrototypeOf(value) === Object.prototype) {
+        return sanitizeObject(value, depth + 1);
+    }
+    return value; // non-plain object (Date, RegExp, etc.) — pass through
+}
 function sanitizeObject(obj, depth = 0) {
-    // Limit recursion to avoid stack-overflow on adversarial deep objects.
-    // Return the object unchanged rather than silently dropping its data.
-    if (depth > 8)
-        return obj;
+    // At the recursion limit, do a shallow-only strip of forbidden keys rather
+    // than returning the raw object (which could carry prototype-pollution
+    // vectors) or an empty object (which silently drops legitimate data).
+    if (depth > 8) {
+        const shallow = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (FORBIDDEN_KEYS.has(key))
+                continue;
+            if (key.startsWith(DANGEROUS_KEY_PREFIX))
+                continue;
+            shallow[key] = value;
+        }
+        return shallow;
+    }
     const result = {};
     for (const [key, value] of Object.entries(obj)) {
         if (FORBIDDEN_KEYS.has(key))
             continue;
         if (key.startsWith(DANGEROUS_KEY_PREFIX))
             continue;
-        if (value !== null &&
-            typeof value === "object" &&
-            !Array.isArray(value) &&
-            Object.getPrototypeOf(value) === Object.prototype) {
-            result[key] = sanitizeObject(value, depth + 1);
-        }
-        else if (Array.isArray(value)) {
-            // Recursively sanitize plain objects inside arrays to prevent
-            // prototype-pollution vectors embedded in array elements.
-            result[key] = value.map((item) => item !== null &&
-                typeof item === "object" &&
-                !Array.isArray(item) &&
-                Object.getPrototypeOf(item) === Object.prototype
-                ? sanitizeObject(item, depth + 1)
-                : item);
-        }
-        else {
-            result[key] = value;
-        }
+        result[key] = sanitizeValue(value, depth);
     }
     return result;
 }

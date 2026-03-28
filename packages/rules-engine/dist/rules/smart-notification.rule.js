@@ -57,8 +57,9 @@ function resolveAppOpen(ctx) {
  */
 function resolveActiveWindow(aggressionLevel) {
     const t = aggressionLevel / 100;
-    // At 0%: start=10, end=18. At 50%: start=8, end=20. At 100%: start=0, end=24.
-    // Formula: start = DEFAULT_HOUR_START + 2 - t*4 → t=0:10, t=0.5:8
+    // At 0%: start=10, end=18. At 50%: start=8, end=20.
+    // Level 100 is handled by the early-return in wouldBeDeferred and never
+    // reaches this function, so formula values at t=1 are intentionally unused.
     const start = Math.round(DEFAULT_HOUR_START + 2 - t * 4);
     const end = Math.round(DEFAULT_HOUR_END - 2 + t * 4);
     return { start: Math.max(0, start), end: Math.min(23, end) };

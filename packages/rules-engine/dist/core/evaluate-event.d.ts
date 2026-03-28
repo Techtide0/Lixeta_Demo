@@ -24,8 +24,9 @@
  * • The engine is re-entrant and stateless between calls. No module-level
  *   mutable state is read or written during evaluation (the registry is
  *   read-only after freeze).
- * • All emitted IDs are generated deterministically — the same event through
- *   the same config produces the same output IDs, enabling idempotent replay.
+ * • Emitted IDs include a monotonic counter and are NOT idempotent across
+ *   calls — the same event produces different IDs on repeated evaluation.
+ *   IDs are unique within a process lifetime; treat them as opaque audit keys.
  * • `performance.now()` is used for timing — it is monotonic and cannot be
  *   spoofed by changing the system clock.
  */
