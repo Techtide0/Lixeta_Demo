@@ -122,6 +122,14 @@ function validateEnv(env: GatewayEnv): void {
     );
   }
 
+  // Warn if auth is disabled in production (not an error — operator may have removed it intentionally)
+  if (env.NODE_ENV === "production" && !env.REQUIRE_AUTH) {
+    console.warn(
+      "[Config] WARNING: REQUIRE_AUTH is false in production. " +
+        "API key authentication is disabled. Set REQUIRE_AUTH=true to enable it."
+    );
+  }
+
   // Rate limit floor (prevent misconfiguration from disabling the limiter)
   if (env.RATE_LIMIT_MAX < 1) {
     throw new Error("[Config] RATE_LIMIT_MAX must be >= 1.");

@@ -12,9 +12,9 @@
  * 2. Source allowlist check  — reject events from untrusted sources
  * 3. Channel allowlist check — reject events on disallowed channels
  * 4. Payload sanitisation    — strip "__proto__", "constructor", "prototype"
- *                              keys and any "__"-prefixed keys
- * 5. Timestamp staleness     — warn (not reject) if event is >5 min old
- *    (replay-attack signal; hard rejection is policy-configurable)
+ *                              keys and any "__"-prefixed keys; sanitises
+ *                              nested plain objects AND items inside arrays
+ * 5. Timestamp presence      — reject if timestamp is missing or empty
  */
 
 import type { DomainEvent } from "@lixeta/models";
@@ -62,8 +62,9 @@ function sanitizeObject(
   obj: Readonly<Record<string, unknown>>,
   depth = 0
 ): Readonly<Record<string, unknown>> {
-  // Limit recursion to avoid stack-overflow on adversarial deep objects
-  if (depth > 8) return {};
+  // Limit recursion to avoid stack-overflow on adversarial deep objects.
+  // Return the object unchanged rather than silently dropping its data.
+  if (depth > 8) return obj;
 
   const result: Record<string, unknown> = {};
 
@@ -80,6 +81,17 @@ function sanitizeObject(
       result[key] = sanitizeObject(
         value as Readonly<Record<string, unknown>>,
         depth + 1
+      );
+    } else if (Array.isArray(value)) {
+      // Recursively sanitize plain objects inside arrays to prevent
+      // prototype-pollution vectors embedded in array elements.
+      result[key] = (value as unknown[]).map((item) =>
+        item !== null &&
+        typeof item === "object" &&
+        !Array.isArray(item) &&
+        Object.getPrototypeOf(item) === Object.prototype
+          ? sanitizeObject(item as Readonly<Record<string, unknown>>, depth + 1)
+          : item
       );
     } else {
       result[key] = value;
@@ -147,7 +159,7 @@ export function runSecurityGuard(
   }
 
   // 4. Timestamp presence (basic replay-attack signal)
-  if (!event.timestamp) {
+  if (typeof event.timestamp !== "string" || event.timestamp.trim() === "") {
     return {
       passed: false,
       code: "TIMESTAMP_MISSING",

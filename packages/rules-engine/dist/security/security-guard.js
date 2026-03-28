@@ -12,9 +12,9 @@
  * 2. Source allowlist check  — reject events from untrusted sources
  * 3. Channel allowlist check — reject events on disallowed channels
  * 4. Payload sanitisation    — strip "__proto__", "constructor", "prototype"
- *                              keys and any "__"-prefixed keys
- * 5. Timestamp staleness     — warn (not reject) if event is >5 min old
- *    (replay-attack signal; hard rejection is policy-configurable)
+ *                              keys and any "__"-prefixed keys; sanitises
+ *                              nested plain objects AND items inside arrays
+ * 5. Timestamp presence      — reject if timestamp is missing or empty
  */
 // ---------------------------------------------------------------------------
 // Dangerous payload keys (prototype-pollution vectors)
@@ -36,9 +36,10 @@ const DANGEROUS_KEY_PREFIX = "__";
  * payload keys that start with "__", but we strip them anyway.
  */
 function sanitizeObject(obj, depth = 0) {
-    // Limit recursion to avoid stack-overflow on adversarial deep objects
+    // Limit recursion to avoid stack-overflow on adversarial deep objects.
+    // Return the object unchanged rather than silently dropping its data.
     if (depth > 8)
-        return {};
+        return obj;
     const result = {};
     for (const [key, value] of Object.entries(obj)) {
         if (FORBIDDEN_KEYS.has(key))
@@ -50,6 +51,16 @@ function sanitizeObject(obj, depth = 0) {
             !Array.isArray(value) &&
             Object.getPrototypeOf(value) === Object.prototype) {
             result[key] = sanitizeObject(value, depth + 1);
+        }
+        else if (Array.isArray(value)) {
+            // Recursively sanitize plain objects inside arrays to prevent
+            // prototype-pollution vectors embedded in array elements.
+            result[key] = value.map((item) => item !== null &&
+                typeof item === "object" &&
+                !Array.isArray(item) &&
+                Object.getPrototypeOf(item) === Object.prototype
+                ? sanitizeObject(item, depth + 1)
+                : item);
         }
         else {
             result[key] = value;
@@ -102,7 +113,7 @@ export function runSecurityGuard(event, config) {
         };
     }
     // 4. Timestamp presence (basic replay-attack signal)
-    if (!event.timestamp) {
+    if (typeof event.timestamp !== "string" || event.timestamp.trim() === "") {
         return {
             passed: false,
             code: "TIMESTAMP_MISSING",

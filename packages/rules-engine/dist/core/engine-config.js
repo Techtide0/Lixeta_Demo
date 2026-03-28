@@ -33,13 +33,18 @@ export const PRODUCTION_SECURITY_POLICY = {
     capturePayloadSnapshot: false,
     maxTraceRecords: 100,
 };
-/** Build a complete config with defaults filled in. */
+/** Build a complete config with defaults filled in.
+ *
+ * Nested objects (revenue, limits, security) are deep-merged so partial
+ * overrides do not silently drop unspecified default fields.
+ */
 export function buildEngineConfig(overrides) {
     return {
-        revenue: { currency: "NGN", minorUnitMultiplier: 100 },
-        limits: DEFAULT_EXECUTION_LIMITS,
-        security: DEFAULT_SECURITY_POLICY,
+        aggressionLevel: 50,
         meta: {},
         ...overrides,
+        revenue: { currency: "NGN", minorUnitMultiplier: 100, ...(overrides.revenue ?? {}) },
+        limits: { ...DEFAULT_EXECUTION_LIMITS, ...(overrides.limits ?? {}) },
+        security: { ...DEFAULT_SECURITY_POLICY, ...(overrides.security ?? {}) },
     };
 }

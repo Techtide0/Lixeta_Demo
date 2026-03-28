@@ -12,9 +12,9 @@
  * 2. Source allowlist check  — reject events from untrusted sources
  * 3. Channel allowlist check — reject events on disallowed channels
  * 4. Payload sanitisation    — strip "__proto__", "constructor", "prototype"
- *                              keys and any "__"-prefixed keys
- * 5. Timestamp staleness     — warn (not reject) if event is >5 min old
- *    (replay-attack signal; hard rejection is policy-configurable)
+ *                              keys and any "__"-prefixed keys; sanitises
+ *                              nested plain objects AND items inside arrays
+ * 5. Timestamp presence      — reject if timestamp is missing or empty
  */
 import type { DomainEvent } from "@lixeta/models";
 import type { EngineConfig } from "../core/engine-config.js";

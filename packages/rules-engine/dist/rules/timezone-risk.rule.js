@@ -88,9 +88,12 @@ export const timezoneRiskRule = {
             // Compute local hour in both timezones and check offset difference
             const deviceHour = deviceTimezone ? resolveHour(ctx, deviceTimezone) : null;
             const accountHour = accountTimezone ? resolveHour(ctx, accountTimezone) : null;
-            const hourDelta = (deviceHour !== null && accountHour !== null)
+            // Use circular distance (mod 24) so that e.g. hour 23 vs hour 1
+            // gives a delta of 2, not 22.
+            const rawDelta = (deviceHour !== null && accountHour !== null)
                 ? Math.abs(deviceHour - accountHour)
                 : null;
+            const hourDelta = rawDelta !== null ? Math.min(rawDelta, 24 - rawDelta) : null;
             // Suspicious if timezone difference >= 4 hours
             const SUSPICIOUS_DELTA = 4;
             const isSuspicious = hourDelta !== null && hourDelta >= SUSPICIOUS_DELTA;
@@ -215,7 +218,7 @@ function buildTrace(traceId, ctx, outcome, explanation, conditions, actions) {
         traceId,
         ruleId: TIMEZONE_RISK_RULE_ID,
         ruleName: "Timezone Risk",
-        ruleVersion: "1.0.0",
+        ruleVersion: "1.1.0",
         triggeringEventId: ctx.event.id,
         triggeringEventType: ctx.event.type,
         evaluatedAt: ctx.batchTimestamp,

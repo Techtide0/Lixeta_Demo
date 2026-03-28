@@ -64,7 +64,8 @@ export function invokeRule(
       rule,
       ctx,
       `Engine budget exhausted before rule ${ruleIndex + 1} (${rule.id}) could run`,
-      "disabled"
+      "disabled",
+      0
     );
     return { kind: "budget_exceeded", trace };
   }
@@ -88,7 +89,8 @@ export function invokeRule(
       rule,
       ctx,
       `Rule pre-condition returned false — event type or state did not match`,
-      "skipped"
+      "skipped",
+      executionMs
     );
     return { kind: "skipped", trace, executionMs };
   }
@@ -108,7 +110,7 @@ export function invokeRule(
         ...result.trace,
         explanation:
           `[TIMEOUT WARNING: ${executionMs.toFixed(1)}ms exceeded limit of ` +
-          `${ctx.config.limits.maxRuleExecutionMs}ms] ${result.trace.explanation}`,
+          `${ctx.config.limits.maxRuleExecutionMs}ms] ${result.trace?.explanation ?? ""}`,
       };
       return {
         kind: "evaluated",
@@ -134,7 +136,8 @@ function buildSkippedTrace(
   rule: Rule,
   ctx: EvaluationContext,
   explanation: string,
-  outcome: "skipped" | "disabled"
+  outcome: "skipped" | "disabled",
+  executionMs: number
 ): RuleTrace {
   const conditions: ConditionTrace[] = [];
   const actions: ActionTrace[] = [];
@@ -147,7 +150,7 @@ function buildSkippedTrace(
     triggeringEventId: ctx.event.id,
     triggeringEventType: ctx.event.type,
     evaluatedAt: ctx.batchTimestamp,
-    executionTimeMs: 0,
+    executionTimeMs: executionMs,
     outcome,
     explanation,
     conditions,

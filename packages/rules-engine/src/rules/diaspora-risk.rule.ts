@@ -50,7 +50,7 @@ const REVERSAL_BLOCK_THRESHOLD = 2;
 /**
  * Resolve velocity threshold based on aggressionLevel.
  * Level 0  → 5 payments required (conservative)
- * Level 50 → 3 payments (default)
+ * Level 50 → 4 payments (default; Math.round(5 - 0.5*3) = 4)
  * Level 100 → 2 payments (aggressive)
  */
 function resolveVelocityThreshold(aggressionLevel: number): number {

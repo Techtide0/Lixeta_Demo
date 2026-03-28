@@ -31,10 +31,19 @@ import { generateTraceId } from "../utils/id-generator.js";
 // Constants
 // ---------------------------------------------------------------------------
 export const DIASPORA_RISK_RULE_ID = "DIASPORA_RISK_V1";
-/** Number of payment events in one session before velocity flag triggers */
-const VELOCITY_THRESHOLD = 3;
 /** Number of reversals in one session before escalation to block */
 const REVERSAL_BLOCK_THRESHOLD = 2;
+/**
+ * Resolve velocity threshold based on aggressionLevel.
+ * Level 0  → 5 payments required (conservative)
+ * Level 50 → 4 payments (default; Math.round(5 - 0.5*3) = 4)
+ * Level 100 → 2 payments (aggressive)
+ */
+function resolveVelocityThreshold(aggressionLevel) {
+    const t = aggressionLevel / 100;
+    // At 0%: 5. At 50%: 3. At 100%: 2.
+    return Math.max(2, Math.round(5 - t * 3));
+}
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -139,7 +148,8 @@ export const diasporaRiskRule = {
         const totalPaymentEvents = priorInitiated + priorSucceeded + priorReversed +
             currentIsInitiated + currentIsSucceeded + currentIsReversed;
         const totalReversals = priorReversed + currentIsReversed;
-        const isVelocityBreach = totalPaymentEvents >= VELOCITY_THRESHOLD;
+        const velocityThreshold = resolveVelocityThreshold(ctx.config.aggressionLevel ?? 50);
+        const isVelocityBreach = totalPaymentEvents >= velocityThreshold;
         const isReversalEscalation = event.type === PAYMENT_REVERSED && totalReversals >= REVERSAL_BLOCK_THRESHOLD;
         const conditions = [
             {
@@ -149,9 +159,9 @@ export const diasporaRiskRule = {
                 passed: true,
             },
             {
-                description: `Total payment events in session >= velocity threshold (${VELOCITY_THRESHOLD})`,
+                description: `Total payment events in session >= velocity threshold (${velocityThreshold})`,
                 actualValue: totalPaymentEvents,
-                expectedValue: `>= ${VELOCITY_THRESHOLD}`,
+                expectedValue: `>= ${velocityThreshold}`,
                 passed: isVelocityBreach,
             },
             {
@@ -207,18 +217,18 @@ export const diasporaRiskRule = {
                 category: "velocity_breach",
                 severity: "high",
                 score: 0.70,
-                description: `Payment velocity breach: ${totalPaymentEvents} payment events in session (threshold: ${VELOCITY_THRESHOLD})`,
+                description: `Payment velocity breach: ${totalPaymentEvents} payment events in session (threshold: ${velocityThreshold})`,
                 evidence: {
                     type: "velocity",
                     observedCount: totalPaymentEvents,
-                    threshold: VELOCITY_THRESHOLD,
+                    threshold: velocityThreshold,
                     windowMs: 0, // session-scoped
                     partyId: event.source.id,
                 },
             });
             actions.push({
                 actionType: "flag_velocity_breach",
-                description: `Payment flagged — ${totalPaymentEvents} payment events in session exceeds velocity threshold (${VELOCITY_THRESHOLD})`,
+                description: `Payment flagged — ${totalPaymentEvents} payment events in session exceeds velocity threshold (${velocityThreshold})`,
                 executed: true,
                 result: {
                     totalPaymentEvents,
@@ -227,24 +237,24 @@ export const diasporaRiskRule = {
                         succeeded: priorSucceeded + currentIsSucceeded,
                         reversed: priorReversed + currentIsReversed,
                     },
-                    velocityThreshold: VELOCITY_THRESHOLD,
+                    velocityThreshold: velocityThreshold,
                     riskScore: 0.70,
                 },
             });
-            const trace = buildTrace(traceId, ctx, "fired", `FLAGGED: ${totalPaymentEvents} payment events in session exceeds velocity threshold (${VELOCITY_THRESHOLD}). Risk signal emitted.`, conditions, actions);
+            const trace = buildTrace(traceId, ctx, "fired", `FLAGGED: ${totalPaymentEvents} payment events in session exceeds velocity threshold (${velocityThreshold}). Risk signal emitted.`, conditions, actions);
             return {
                 trace,
-                verdictContribution: flagContribution(`Payment velocity breach: ${totalPaymentEvents} events in session (threshold: ${VELOCITY_THRESHOLD})`),
+                verdictContribution: flagContribution(`Payment velocity breach: ${totalPaymentEvents} events in session (threshold: ${velocityThreshold})`),
             };
         }
         // ── Normal payment activity ──
         actions.push({
             actionType: "no_action",
-            description: `Payment activity within normal bounds. ${totalPaymentEvents}/${VELOCITY_THRESHOLD} events in session.`,
+            description: `Payment activity within normal bounds. ${totalPaymentEvents}/${velocityThreshold} events in session.`,
             executed: true,
             result: {
                 totalPaymentEvents,
-                velocityThreshold: VELOCITY_THRESHOLD,
+                velocityThreshold: velocityThreshold,
                 totalReversals,
                 reversalBlockThreshold: REVERSAL_BLOCK_THRESHOLD,
             },

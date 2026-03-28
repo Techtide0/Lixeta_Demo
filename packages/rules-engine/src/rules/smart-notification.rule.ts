@@ -76,8 +76,9 @@ function resolveAppOpen(ctx: EvaluationContext): boolean {
 function resolveActiveWindow(aggressionLevel: number): { start: number; end: number } {
   const t = aggressionLevel / 100;
   // At 0%: start=10, end=18. At 50%: start=8, end=20. At 100%: start=0, end=24.
-  const start = Math.round(DEFAULT_HOUR_START + (1 - t) * 2); // 8→10 as t→0
-  const end = Math.round(DEFAULT_HOUR_END - (1 - t) * 2);     // 20→18 as t→0
+  // Formula: start = DEFAULT_HOUR_START + 2 - t*4 → t=0:10, t=0.5:8
+  const start = Math.round(DEFAULT_HOUR_START + 2 - t * 4);
+  const end   = Math.round(DEFAULT_HOUR_END - 2 + t * 4);
   return { start: Math.max(0, start), end: Math.min(23, end) };
 }
 
@@ -111,7 +112,10 @@ function wouldBeDeferred(ctx: EvaluationContext): boolean {
       });
       const parts = formatter.formatToParts(date);
       const hp = parts.find((p) => p.type === "hour");
-      if (hp) localHour = parseInt(hp.value, 10) || null;
+      if (hp) {
+        const parsed = parseInt(hp.value, 10);
+        localHour = isNaN(parsed) ? null : parsed;
+      }
     } catch { /* ignore — don't block on timezone errors */ }
   }
 

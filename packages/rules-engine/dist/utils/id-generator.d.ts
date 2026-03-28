@@ -4,13 +4,13 @@
  *
  * Security notes
  * ──────────────
- * • IDs are NOT cryptographically random — they are deterministic hashes.
- *   This is intentional: given the same inputs, the same ID is produced,
- *   making outputs idempotent and replay-safe.
- * • We use a simple FNV-1a 64-bit hash approximated in JS (53-bit safe int)
- *   combined with a monotonic counter to guarantee uniqueness within one
- *   process lifetime.
- * • Never use these IDs as secrets or tokens. They are audit identifiers only.
+ * • IDs combine a fast FNV-1a hash of the inputs with a monotonic counter.
+ *   The hash component is deterministic; the counter component is NOT —
+ *   calling the same generator twice produces different IDs. This guarantees
+ *   uniqueness within a process lifetime but not strict idempotency across
+ *   calls. Do not assume the same inputs yield the same ID.
+ * • The counter resets on process restart. Treat IDs as opaque audit
+ *   identifiers, never as secrets or replay tokens.
  */
 /**
  * Generate a trace ID for a rule evaluation.

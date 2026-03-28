@@ -157,7 +157,10 @@ export const activeHoursRule = {
             executed: true,
             result: { localHour, timezone: TIMEZONE },
         });
-        const trace = buildTrace(traceId, ctx, "no_match", `Message at local hour ${localHour} WAT — within active window. No deferral needed.`, conditions, actions);
+        const explanation = localHour !== null
+            ? `Message at local hour ${localHour} WAT — within active window. No deferral needed.`
+            : `Local hour could not be determined — message allowed through by default.`;
+        const trace = buildTrace(traceId, ctx, "no_match", explanation, conditions, actions);
         return { trace, verdictContribution: allowContribution() };
     },
 };

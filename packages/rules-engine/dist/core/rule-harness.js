@@ -32,7 +32,7 @@ export function invokeRule(rule, ctx, ruleIndex, budgetRemainingMs) {
     const traceId = generateTraceId(rule.id, ctx.event.id);
     // ── budget check ──
     if (budgetRemainingMs <= 0) {
-        const trace = buildSkippedTrace(traceId, rule, ctx, `Engine budget exhausted before rule ${ruleIndex + 1} (${rule.id}) could run`, "disabled");
+        const trace = buildSkippedTrace(traceId, rule, ctx, `Engine budget exhausted before rule ${ruleIndex + 1} (${rule.id}) could run`, "disabled", 0);
         return { kind: "budget_exceeded", trace };
     }
     // ── applies() check ──
@@ -48,7 +48,7 @@ export function invokeRule(rule, ctx, ruleIndex, budgetRemainingMs) {
     }
     if (!appliesResult) {
         const executionMs = Math.max(0, performance.now() - appliesStart);
-        const trace = buildSkippedTrace(traceId, rule, ctx, `Rule pre-condition returned false — event type or state did not match`, "skipped");
+        const trace = buildSkippedTrace(traceId, rule, ctx, `Rule pre-condition returned false — event type or state did not match`, "skipped", executionMs);
         return { kind: "skipped", trace, executionMs };
     }
     // ── evaluate() ──
@@ -62,7 +62,7 @@ export function invokeRule(rule, ctx, ruleIndex, budgetRemainingMs) {
             const annotatedTrace = {
                 ...result.trace,
                 explanation: `[TIMEOUT WARNING: ${executionMs.toFixed(1)}ms exceeded limit of ` +
-                    `${ctx.config.limits.maxRuleExecutionMs}ms] ${result.trace.explanation}`,
+                    `${ctx.config.limits.maxRuleExecutionMs}ms] ${result.trace?.explanation ?? ""}`,
             };
             return {
                 kind: "evaluated",
@@ -81,7 +81,7 @@ export function invokeRule(rule, ctx, ruleIndex, budgetRemainingMs) {
 // ---------------------------------------------------------------------------
 // Trace builders
 // ---------------------------------------------------------------------------
-function buildSkippedTrace(traceId, rule, ctx, explanation, outcome) {
+function buildSkippedTrace(traceId, rule, ctx, explanation, outcome, executionMs) {
     const conditions = [];
     const actions = [];
     return {
@@ -92,7 +92,7 @@ function buildSkippedTrace(traceId, rule, ctx, explanation, outcome) {
         triggeringEventId: ctx.event.id,
         triggeringEventType: ctx.event.type,
         evaluatedAt: ctx.batchTimestamp,
-        executionTimeMs: 0,
+        executionTimeMs: executionMs,
         outcome,
         explanation,
         conditions,

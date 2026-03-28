@@ -139,6 +139,7 @@ export function mergeVerdicts(
 
   for (const contrib of contributions) {
     const priority = VERDICT_PRIORITY.indexOf(contrib.type);
+    if (priority === -1) continue; // unknown type — skip rather than silently win
     if (priority < winnerPriority) {
       winner = contrib;
       winnerPriority = priority;

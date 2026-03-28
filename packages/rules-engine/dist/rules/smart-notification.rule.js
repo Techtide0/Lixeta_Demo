@@ -35,8 +35,9 @@ const SMS_COST_KOBO = 1_000;
 // ---------------------------------------------------------------------------
 // Payload helpers
 // ---------------------------------------------------------------------------
-const ACTIVE_HOUR_START = 8;
-const ACTIVE_HOUR_END = 20;
+// Default active window — overridden by aggressionLevel at runtime
+const DEFAULT_HOUR_START = 8;
+const DEFAULT_HOUR_END = 20;
 /**
  * Extract appOpen from the event payload.
  * Defaults to false (conservative: assume app is closed).
@@ -49,12 +50,31 @@ function resolveAppOpen(ctx) {
     return false;
 }
 /**
+ * Resolve the active window start/end hours based on aggressionLevel.
+ * Level 0  → conservative window 10:00–18:00 (8h)
+ * Level 50 → default window    08:00–20:00 (12h)
+ * Level 100 → always active — never deferred
+ */
+function resolveActiveWindow(aggressionLevel) {
+    const t = aggressionLevel / 100;
+    // At 0%: start=10, end=18. At 50%: start=8, end=20. At 100%: start=0, end=24.
+    // Formula: start = DEFAULT_HOUR_START + 2 - t*4 → t=0:10, t=0.5:8
+    const start = Math.round(DEFAULT_HOUR_START + 2 - t * 4);
+    const end = Math.round(DEFAULT_HOUR_END - 2 + t * 4);
+    return { start: Math.max(0, start), end: Math.min(23, end) };
+}
+/**
  * Check whether this message would be deferred by the Active Hours rule.
  * If payload.hour is supplied (simulation mode), use it directly.
  * Fallback: derive hour from event.timestamp in WAT (Africa/Lagos, UTC+1).
  * Returns true only if we can CONFIRM outside window — never blocks on doubt.
  */
 function wouldBeDeferred(ctx) {
+    const aggressionLevel = ctx.config.aggressionLevel ?? 50;
+    // At max aggression, never defer — always consider "in window"
+    if (aggressionLevel >= 100)
+        return false;
+    const { start: windowStart, end: windowEnd } = resolveActiveWindow(aggressionLevel);
     const payload = ctx.event.payload;
     let localHour = null;
     if (typeof payload["hour"] === "number") {
@@ -70,14 +90,16 @@ function wouldBeDeferred(ctx) {
             });
             const parts = formatter.formatToParts(date);
             const hp = parts.find((p) => p.type === "hour");
-            if (hp)
-                localHour = parseInt(hp.value, 10) || null;
+            if (hp) {
+                const parsed = parseInt(hp.value, 10);
+                localHour = isNaN(parsed) ? null : parsed;
+            }
         }
         catch { /* ignore — don't block on timezone errors */ }
     }
     if (localHour === null)
         return false;
-    return localHour < ACTIVE_HOUR_START || localHour > ACTIVE_HOUR_END;
+    return localHour < windowStart || localHour > windowEnd;
 }
 // ---------------------------------------------------------------------------
 // Rule implementation

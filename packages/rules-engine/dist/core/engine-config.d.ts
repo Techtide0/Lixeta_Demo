@@ -90,9 +90,19 @@ export interface EngineConfig {
      * Never used by the engine itself (no dynamic dispatch on this field).
      */
     readonly meta: Readonly<Record<string, string>>;
+    /**
+     * Engine aggression level (0–100). Rules use this to tune sensitivity.
+     * 0 = most conservative, 100 = most aggressive.
+     * Default: 50 (balanced).
+     */
+    readonly aggressionLevel: number;
 }
 export declare const DEFAULT_EXECUTION_LIMITS: EngineExecutionLimits;
 export declare const DEFAULT_SECURITY_POLICY: EngineSecurityPolicy;
 export declare const PRODUCTION_SECURITY_POLICY: EngineSecurityPolicy;
-/** Build a complete config with defaults filled in. */
+/** Build a complete config with defaults filled in.
+ *
+ * Nested objects (revenue, limits, security) are deep-merged so partial
+ * overrides do not silently drop unspecified default fields.
+ */
 export declare function buildEngineConfig(overrides: Pick<EngineConfig, "engineId" | "engineVersion" | "enabledRuleIds"> & Partial<Omit<EngineConfig, "engineId" | "engineVersion" | "enabledRuleIds">>): EngineConfig;
