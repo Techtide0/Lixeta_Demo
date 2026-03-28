@@ -87,8 +87,10 @@ export function buildPacs008(input) {
     const safeSenderAcc = escapeXml(input.senderAccount.slice(0, 34));
     const safeRecvrAcc = escapeXml(input.receiverAccount.slice(0, 34));
     const safeBankCode = escapeXml(input.bankCode.slice(0, 11));
+    const safeBic = input.bankBic ? escapeXml(input.bankBic.slice(0, 11)) : null;
     const safeCcy = escapeXml(input.currency);
     const safeAmt = escapeXml(formattedAmount);
+    const bicLine = safeBic ? `\n                  <BICFI>${safeBic}</BICFI>` : "";
     // ── Build XML ─────────────────────────────────────────────────────────────
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
@@ -127,7 +129,7 @@ export function buildPacs008(input) {
       <IntrBkSttlmDt>${generatedAt.slice(0, 10)}</IntrBkSttlmDt>
       <ChrgBr>SHAR</ChrgBr>
       <InstgAgt>
-        <FinInstnId>
+        <FinInstnId>${bicLine}
           <ClrSysMmbId>
             <ClrSysId>
               <Cd>CBN</Cd>
@@ -151,7 +153,7 @@ export function buildPacs008(input) {
         <Ccy>${safeCcy}</Ccy>
       </DbtrAcct>
       <DbtrAgt>
-        <FinInstnId>
+        <FinInstnId>${bicLine}
           <ClrSysMmbId>
             <ClrSysId>
               <Cd>CBN</Cd>
@@ -161,7 +163,7 @@ export function buildPacs008(input) {
         </FinInstnId>
       </DbtrAgt>
       <CdtrAgt>
-        <FinInstnId>
+        <FinInstnId>${bicLine}
           <ClrSysMmbId>
             <ClrSysId>
               <Cd>CBN</Cd>

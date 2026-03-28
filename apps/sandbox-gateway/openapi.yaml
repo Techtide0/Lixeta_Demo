@@ -657,8 +657,10 @@ components:
           example: "E2E-20260325-ABCDEF123456"
         xml:
           type: string
-          description: Full ISO 20022 XML document.
-          example: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>..."
+          description: >
+            Full ISO 20022 XML document string. For `mode=success` this is a
+            pacs.008.001.08 Customer Credit Transfer; for `mode=kill` this is a
+            pacs.004.001.09 Payment Return. See endpoint examples for complete XML.
         generatedAt:
           type: string
           format: date-time
@@ -1439,21 +1441,184 @@ paths:
                     format: date-time
                   data:
                     $ref: "#/components/schemas/IsoData"
-              example:
-                ok: true
-                requestId: "req_abc123"
-                timestamp: "2026-03-25T12:00:00.000Z"
-                data:
-                  mode: "success"
-                  isoType: "pacs.008.001.08"
-                  msgId: "MSG-20260325-ABCDEF123456"
-                  endToEndId: "E2E-20260325-ABCDEF123456"
-                  xml: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Document>...</Document>"
-                  generatedAt: "2026-03-25T12:00:00.000Z"
-                  inputHash: "a3f8c2d1e4b5f6a7b8c9d0e1f2a3b4c5"
-                  formattedAmount: "₦1,500.00"
-                  currency: "NGN"
-                  latencyMs: 8
+              examples:
+                success:
+                  summary: "pacs.008.001.08 — Customer Credit Transfer (₦1,500.00 NGN)"
+                  value:
+                    ok: true
+                    requestId: "req_abc123"
+                    timestamp: "2026-03-28T10:00:00.000Z"
+                    data:
+                      mode: "success"
+                      isoType: "pacs.008.001.08"
+                      msgId: "MSG-20260328-A1B2C3D4"
+                      endToEndId: "E2E-20260328-A1B2C3D4"
+                      xml: |
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+                                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                  xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08 pacs.008.001.08.xsd">
+                          <FIToFICstmrCdtTrf>
+                            <GrpHdr>
+                              <MsgId>MSG-20260328-A1B2C3D4</MsgId>
+                              <CreDtTm>2026-03-28T10:00:00.000Z</CreDtTm>
+                              <NbOfTxs>1</NbOfTxs>
+                              <SttlmInf>
+                                <SttlmMtd>CLRG</SttlmMtd>
+                                <ClrSys><Cd>CBN</Cd></ClrSys>
+                              </SttlmInf>
+                            </GrpHdr>
+                            <CdtTrfTxInf>
+                              <PmtId>
+                                <InstrId>INSTR-MSG-20260328-A1B2C3D4</InstrId>
+                                <EndToEndId>E2E-20260328-A1B2C3D4</EndToEndId>
+                                <TxId>TXN-MSG-20260328-A1B2C3D4</TxId>
+                              </PmtId>
+                              <PmtTpInf>
+                                <SvcLvl><Cd>NURG</Cd></SvcLvl>
+                                <LclInstrm><Cd>TRANSFER</Cd></LclInstrm>
+                                <CtgyPurp><Cd>BKTR</Cd></CtgyPurp>
+                              </PmtTpInf>
+                              <IntrBkSttlmAmt Ccy="NGN">1500.00</IntrBkSttlmAmt>
+                              <IntrBkSttlmDt>2026-03-28</IntrBkSttlmDt>
+                              <ChrgBr>SHAR</ChrgBr>
+                              <InstgAgt>
+                                <FinInstnId>
+                                  <ClrSysMmbId>
+                                    <ClrSysId><Cd>CBN</Cd></ClrSysId>
+                                    <MmbId>000013</MmbId>
+                                  </ClrSysMmbId>
+                                </FinInstnId>
+                              </InstgAgt>
+                              <Dbtr>
+                                <Nm>Adebayo Okafor</Nm>
+                                <PstlAdr><Ctry>NG</Ctry></PstlAdr>
+                              </Dbtr>
+                              <DbtrAcct>
+                                <Id><Othr><Id>0123456789</Id></Othr></Id>
+                                <Ccy>NGN</Ccy>
+                              </DbtrAcct>
+                              <DbtrAgt>
+                                <FinInstnId>
+                                  <ClrSysMmbId>
+                                    <ClrSysId><Cd>CBN</Cd></ClrSysId>
+                                    <MmbId>000013</MmbId>
+                                  </ClrSysMmbId>
+                                </FinInstnId>
+                              </DbtrAgt>
+                              <CdtrAgt>
+                                <FinInstnId>
+                                  <ClrSysMmbId>
+                                    <ClrSysId><Cd>CBN</Cd></ClrSysId>
+                                    <MmbId>000013</MmbId>
+                                  </ClrSysMmbId>
+                                </FinInstnId>
+                              </CdtrAgt>
+                              <Cdtr>
+                                <Nm>Lixeta Treasury Ltd</Nm>
+                                <PstlAdr><Ctry>NG</Ctry></PstlAdr>
+                              </Cdtr>
+                              <CdtrAcct>
+                                <Id><Othr><Id>9876543210</Id></Othr></Id>
+                                <Ccy>NGN</Ccy>
+                              </CdtrAcct>
+                              <Purp><Cd>BKTR</Cd></Purp>
+                              <RmtInf>
+                                <Ustrd>Transfer from Adebayo Okafor to Lixeta Treasury Ltd via Lixeta Gateway</Ustrd>
+                              </RmtInf>
+                            </CdtTrfTxInf>
+                          </FIToFICstmrCdtTrf>
+                        </Document>
+                      generatedAt: "2026-03-28T10:00:00.000Z"
+                      inputHash: "fnv_a1b2c3d4"
+                      formattedAmount: "₦1,500.00"
+                      currency: "NGN"
+                      latencyMs: 8
+                kill:
+                  summary: "pacs.004.001.09 — Payment Return, AM04 Insufficient Funds"
+                  value:
+                    ok: true
+                    requestId: "req_def456"
+                    timestamp: "2026-03-28T10:00:05.000Z"
+                    data:
+                      mode: "kill"
+                      isoType: "pacs.004.001.09"
+                      msgId: "RET-A1B2C3D4"
+                      endToEndId: "E2E-20260328-A1B2C3D4"
+                      xml: |
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.004.001.09"
+                                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                  xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pacs.004.001.09 pacs.004.001.09.xsd">
+                          <PmtRtr>
+                            <GrpHdr>
+                              <MsgId>RET-A1B2C3D4</MsgId>
+                              <CreDtTm>2026-03-28T10:00:05.000Z</CreDtTm>
+                              <NbOfTxs>1</NbOfTxs>
+                              <TtlRtrdIntrBkSttlmAmt Ccy="NGN">1500.00</TtlRtrdIntrBkSttlmAmt>
+                              <SttlmInf>
+                                <SttlmMtd>CLRG</SttlmMtd>
+                                <ClrSys><Cd>CBN</Cd></ClrSys>
+                              </SttlmInf>
+                            </GrpHdr>
+                            <TxInf>
+                              <RtrId>RTRID-RET-A1B2C3D4</RtrId>
+                              <OrgnlGrpInf>
+                                <OrgnlMsgId>MSG-20260328-A1B2C3D4</OrgnlMsgId>
+                                <OrgnlMsgNmId>pacs.008.001.08</OrgnlMsgNmId>
+                              </OrgnlGrpInf>
+                              <OrgnlEndToEndId>E2E-20260328-A1B2C3D4</OrgnlEndToEndId>
+                              <OrgnlTxId>TXN-MSG-20260328-A1B2C3D4</OrgnlTxId>
+                              <RtrdIntrBkSttlmAmt Ccy="NGN">1500.00</RtrdIntrBkSttlmAmt>
+                              <IntrBkSttlmDt>2026-03-28</IntrBkSttlmDt>
+                              <RtrRsnInf>
+                                <Rsn><Cd>AM04</Cd></Rsn>
+                                <AddtlInf>InsufficientFunds: Sender account has insufficient funds to complete the transfer</AddtlInf>
+                              </RtrRsnInf>
+                              <OrgnlTxRef>
+                                <IntrBkSttlmAmt Ccy="NGN">1500.00</IntrBkSttlmAmt>
+                                <Dbtr>
+                                  <Nm>Adebayo Okafor</Nm>
+                                  <PstlAdr><Ctry>NG</Ctry></PstlAdr>
+                                </Dbtr>
+                                <DbtrAcct>
+                                  <Id><Othr><Id>0123456789</Id></Othr></Id>
+                                </DbtrAcct>
+                                <DbtrAgt>
+                                  <FinInstnId>
+                                    <ClrSysMmbId>
+                                      <ClrSysId><Cd>CBN</Cd></ClrSysId>
+                                      <MmbId>000013</MmbId>
+                                    </ClrSysMmbId>
+                                  </FinInstnId>
+                                </DbtrAgt>
+                                <CdtrAgt>
+                                  <FinInstnId>
+                                    <ClrSysMmbId>
+                                      <ClrSysId><Cd>CBN</Cd></ClrSysId>
+                                      <MmbId>000013</MmbId>
+                                    </ClrSysMmbId>
+                                  </FinInstnId>
+                                </CdtrAgt>
+                                <Cdtr>
+                                  <Nm>Lixeta Treasury Ltd</Nm>
+                                  <PstlAdr><Ctry>NG</Ctry></PstlAdr>
+                                </Cdtr>
+                                <CdtrAcct>
+                                  <Id><Othr><Id>9876543210</Id></Othr></Id>
+                                </CdtrAcct>
+                              </OrgnlTxRef>
+                            </TxInf>
+                          </PmtRtr>
+                        </Document>
+                      generatedAt: "2026-03-28T10:00:05.000Z"
+                      inputHash: "fnv_e5f6a7b8"
+                      formattedAmount: "₦1,500.00"
+                      currency: "NGN"
+                      latencyMs: 11
+                      returnCode: "AM04"
+                      returnReason: "Sender account has insufficient funds to complete the transfer"
+                      originalMsgId: "MSG-20260328-A1B2C3D4"
         "400":
           description: Invalid `mode` parameter — must be `success` or `kill`.
           content:

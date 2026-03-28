@@ -29,6 +29,8 @@ export interface PaymentInput {
   readonly receiverAccount: string;
   /** Bank routing code (sort code / CBN clearing code) */
   readonly bankCode: string;
+  /** Optional: SWIFT BIC code of the instructing/debtor/creditor agent (e.g. "ABNGNGLA") */
+  readonly bankBic?: string;
   /** Optional: override message ID (for deterministic replay) */
   readonly msgId?: string;
   /** Optional: override End-to-End ID */
@@ -98,6 +100,8 @@ export interface Pacs004Input extends PaymentInput {
   readonly returnReason: string;
   /** Message ID of the original pacs.008 being returned */
   readonly originalMsgId: string;
+  /** Transaction ID of the original pacs.008 — required for bank reconciliation */
+  readonly originalTxId?: string;
 }
 
 /** Output of the pacs.004 (Payment Return) builder */
@@ -113,4 +117,5 @@ export interface Pacs004Output {
   readonly returnCode: ReturnCode;
   readonly returnReason: string;
   readonly originalMsgId: string;
+  readonly originalTxId: string;
 }

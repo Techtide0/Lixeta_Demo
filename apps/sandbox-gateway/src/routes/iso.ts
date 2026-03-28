@@ -36,13 +36,22 @@ const SUCCESS_FIXTURE = {
   senderAccount: "0123456789",
   receiverAccount: "9876543210",
   bankCode: "044",              // Access Bank CBN sort code
+  bankBic: "ABNGNGLA",          // Access Bank Nigeria SWIFT BIC
 } as const;
+
+// Pre-build once to derive the deterministic msgId — used as the original
+// reference in the pacs.004 so the two messages form a traceable chain.
+const _successRef = buildPacs008(SUCCESS_FIXTURE);
 
 const KILL_FIXTURE = {
   ...SUCCESS_FIXTURE,
-  returnCode: "AM04" as const, // InsufficientFunds
+  // Preserve the original EndToEndId — it must flow unchanged across the
+  // full payment lifecycle (pacs.008 → pacs.004) for bank reconciliation.
+  endToEndId: _successRef.endToEndId,
+  returnCode: "AM04" as const,  // InsufficientFunds
   returnReason: "Sender account has insufficient funds to complete the transfer",
-  originalMsgId: "MSG-00000000",
+  originalMsgId: _successRef.msgId,
+  originalTxId: `TXN-${_successRef.msgId}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -109,6 +118,7 @@ router.get("/pacs008", (req: Request, res: Response): void => {
         returnCode: result.returnCode,
         returnReason: result.returnReason,
         originalMsgId: result.originalMsgId,
+        originalTxId: result.originalTxId,
         latencyMs,
       }, requestId);
     }

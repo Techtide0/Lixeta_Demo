@@ -76,12 +76,17 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
   const safeSenderAcc   = escapeXml(input.senderAccount.slice(0, 34));
   const safeRecvrAcc    = escapeXml(input.receiverAccount.slice(0, 34));
   const safeBankCode    = escapeXml(input.bankCode.slice(0, 11));
+  const safeBic         = input.bankBic ? escapeXml(input.bankBic.slice(0, 11)) : null;
   const safeCcy         = escapeXml(input.currency);
   const safeAmt         = escapeXml(formattedAmount);
   const safeReturnCode  = escapeXml(input.returnCode);
   const safeReturnLabel = escapeXml(RETURN_REASON_LABELS[input.returnCode] ?? input.returnCode);
   const safeReturnRsn   = escapeXml(input.returnReason.slice(0, 105));
   const safeOrigMsgId   = escapeXml(sanitizeId(input.originalMsgId));
+  // OrgnlTxId links directly to the TxId in the original pacs.008 — critical for bank reconciliation
+  const originalTxId    = input.originalTxId ?? `TXN-${sanitizeId(input.originalMsgId)}`;
+  const safeOrigTxId    = escapeXml(originalTxId);
+  const bicLine         = safeBic ? `\n              <BICFI>${safeBic}</BICFI>` : "";
 
   // ── Build XML ─────────────────────────────────────────────────────────────
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -108,6 +113,7 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
         <OrgnlMsgNmId>pacs.008.001.08</OrgnlMsgNmId>
       </OrgnlGrpInf>
       <OrgnlEndToEndId>${safeE2eId}</OrgnlEndToEndId>
+      <OrgnlTxId>${safeOrigTxId}</OrgnlTxId>
       <RtrdIntrBkSttlmAmt Ccy="${safeCcy}">${safeAmt}</RtrdIntrBkSttlmAmt>
       <IntrBkSttlmDt>${generatedAt.slice(0, 10)}</IntrBkSttlmDt>
       <RtrRsnInf>
@@ -132,7 +138,7 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
           </Id>
         </DbtrAcct>
         <DbtrAgt>
-          <FinInstnId>
+          <FinInstnId>${bicLine}
             <ClrSysMmbId>
               <ClrSysId><Cd>CBN</Cd></ClrSysId>
               <MmbId>${safeBankCode}</MmbId>
@@ -140,7 +146,7 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
           </FinInstnId>
         </DbtrAgt>
         <CdtrAgt>
-          <FinInstnId>
+          <FinInstnId>${bicLine}
             <ClrSysMmbId>
               <ClrSysId><Cd>CBN</Cd></ClrSysId>
               <MmbId>${safeBankCode}</MmbId>
@@ -177,5 +183,6 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
     returnCode: input.returnCode,
     returnReason: input.returnReason,
     originalMsgId: input.originalMsgId,
+    originalTxId,
   };
 }
