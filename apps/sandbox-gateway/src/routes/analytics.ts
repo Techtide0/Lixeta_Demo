@@ -110,7 +110,7 @@ router.get("/", (req: Request, res: Response): void => {
 
   // ── Fetch sessions ────────────────────────────────────────────────────────
 
-  const found: Array<{ sessionId: string; sessionStatus: string; state: import("../../../../packages/models/src/index.js").SimulationState }> = [];
+  const found: Array<{ sessionId: string; sessionStatus: string; state: import("@lixeta/models").SimulationState }> = [];
   const notFound: string[] = [];
 
   for (const sessionId of sessionIds) {

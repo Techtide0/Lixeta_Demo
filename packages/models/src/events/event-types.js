@@ -29,6 +29,9 @@ export const SESSION_STARTED = "session.started";
 export const SESSION_ENDED = "session.ended";
 export const USER_AUTHENTICATED = "user.authenticated";
 export const USER_DEAUTHENTICATED = "user.deauthenticated";
+/** Aliases — map legacy/shorthand names to the canonical domain events */
+export const USER_LOGIN = "user.login";
+export const USER_LOGOUT = "user.logout";
 // ---------------------------------------------------------------------------
 // Rules Engine Events
 // ---------------------------------------------------------------------------
@@ -74,6 +77,8 @@ export const ALL_EVENT_TYPES = [
     SESSION_ENDED,
     USER_AUTHENTICATED,
     USER_DEAUTHENTICATED,
+    USER_LOGIN,
+    USER_LOGOUT,
     RULE_FIRED,
     RULE_SKIPPED,
     RULE_ERROR,

@@ -17,7 +17,7 @@
  * (error traces may have partial execution times that skew the average).
  */
 
-import type { RuleTrace, DecisionResult } from "../../../../packages/models/src/index.js";
+import type { RuleTrace, DecisionResult } from "@lixeta/models";
 import type {
   RulesAnalytics,
   RulePerformance,

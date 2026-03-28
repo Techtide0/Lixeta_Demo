@@ -18,7 +18,7 @@
  * Returns null if < 2 events (duration is undefined for a single event).
  */
 
-import type { DomainEvent } from "../../../../packages/models/src/index.js";
+import type { DomainEvent } from "@lixeta/models";
 import type { EventAnalytics, EventTypeCount, HourlyEventCount } from "./types.js";
 
 // ---------------------------------------------------------------------------

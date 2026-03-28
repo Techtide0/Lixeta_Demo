@@ -33,9 +33,9 @@ import type {
   RevenueEvent,
   RiskEvent,
   RuleTrace,
-} from "../../../../packages/models/src/index.js";
+} from "@lixeta/models";
 
-import type { EngineEvaluationOutput } from "../../../../packages/rules-engine/src/index.js";
+import type { EngineEvaluationOutput } from "@lixeta/rules-engine";
 
 // ---------------------------------------------------------------------------
 // Client-supplied session metadata
@@ -193,7 +193,7 @@ import type {
   SimulationCounters,
   SimulationTiming,
   EventType,
-} from "../../../../packages/models/src/index.js";
+} from "@lixeta/models";
 
 function updateCounters(
   state: SimulationState,

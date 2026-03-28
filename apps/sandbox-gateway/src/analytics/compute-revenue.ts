@@ -20,7 +20,7 @@
  * accounting errors. The primary currency is the one with the most events.
  */
 
-import type { RevenueEvent } from "../../../../packages/models/src/index.js";
+import type { RevenueEvent } from "@lixeta/models";
 import type {
   RevenueAnalytics,
   RevenueBreakdown,

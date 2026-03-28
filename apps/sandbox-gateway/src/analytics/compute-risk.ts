@@ -16,7 +16,7 @@
  * All inputs are treated as immutable — this function reads but never writes.
  */
 
-import type { RiskEvent } from "../../../../packages/models/src/index.js";
+import type { RiskEvent } from "@lixeta/models";
 import type {
   RiskAnalytics,
   RiskBreakdown,

@@ -30,10 +30,10 @@
 
 import type {
   DomainEvent,
-} from "../../../../packages/models/src/index.js";
+} from "@lixeta/models";
 
-import { createInitialSimulationState } from "../../../../packages/models/src/index.js";
-import type { EngineEvaluationOutput } from "../../../../packages/rules-engine/src/index.js";
+import { createInitialSimulationState } from "@lixeta/models";
+import type { EngineEvaluationOutput } from "@lixeta/rules-engine";
 import type { SessionRecord, SessionMetadata } from "./session-record.js";
 import {
   applyEngineOutput,

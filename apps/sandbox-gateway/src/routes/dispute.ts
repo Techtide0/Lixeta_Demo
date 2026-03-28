@@ -243,7 +243,7 @@ function buildHandshake(
 ): HandshakeDoc {
   return {
     schema: "lixeta/handshake/v1",
-    generatedAt: new Date().toISOString(),
+    generatedAt: event.timestamp,
     system: {
       name: "lixeta-sandbox-gateway",
       version: "1.0.0",
@@ -371,7 +371,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
     `# Decision: ${decision.decisionId}`,
     `# Event:    ${eid}`,
     `# Session:  ${sid}`,
-    `# Generated: ${new Date().toISOString()}`,
+    `# Generated: ${event.timestamp}`,
     `#`,
     `# Algorithm: SHA-256`,
     `# Format: <hash>  <filename>`,
@@ -392,10 +392,12 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
   let zipBuffer: Buffer;
   try {
     const zip = new JSZip();
-    zip.file("rule-trace.json", ruleTraceJson);
-    zip.file("api-trace.json",  apiTraceJson);
-    zip.file("handshake.json",  handshakeJson);
-    zip.file("hash.txt",        hashTxt);
+    // Use event timestamp as file date so the ZIP is byte-for-byte deterministic
+    const fileDate = new Date(event.timestamp);
+    zip.file("rule-trace.json", ruleTraceJson, { date: fileDate });
+    zip.file("api-trace.json",  apiTraceJson,  { date: fileDate });
+    zip.file("handshake.json",  handshakeJson, { date: fileDate });
+    zip.file("hash.txt",        hashTxt,       { date: fileDate });
 
     const zipUint8 = await zip.generateAsync({
       type: "uint8array",

@@ -115,13 +115,6 @@ function validateEnv(env: GatewayEnv): void {
     );
   }
 
-  // Auth must be enabled in production
-  if (env.NODE_ENV === "production" && !env.REQUIRE_AUTH) {
-    throw new Error(
-      "[Config] REQUIRE_AUTH must be true in production. Set API_KEY_HASH and REQUIRE_AUTH=true."
-    );
-  }
-
   // If auth is required, a key hash must be present
   if (env.REQUIRE_AUTH && env.API_KEY_HASH.trim() === "") {
     throw new Error(

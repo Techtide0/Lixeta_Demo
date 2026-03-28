@@ -1,1 +1,13 @@
 node_modules
+dist
+.env
+!.env.example
+
+# Test files
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/scripts/live-test.mjs
+test-stage0-compiled.mjs
+test-stage0-imports.ts

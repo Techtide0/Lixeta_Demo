@@ -24,7 +24,7 @@
  * Analytics cannot leak data across sessions because it has no store reference.
  */
 
-import type { SimulationState, DecisionResult } from "../../../../packages/models/src/index.js";
+import type { SimulationState, DecisionResult } from "@lixeta/models";
 import type {
   SessionAnalytics,
   MultiSessionAnalytics,
