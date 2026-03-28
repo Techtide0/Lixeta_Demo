@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+
+  <!-- L — vertical bar -->
+  <rect x="9" y="7" width="4" height="16" rx="1.5" fill="white"/>
+
+  <!-- L — horizontal bar -->
+  <rect x="9" y="19" width="13" height="4" rx="1.5" fill="white"/>
+
+  <!-- Accent: small glowing node (top-right) -->
+  <circle cx="22.5" cy="10" r="3" fill="white" opacity="0.15"/>
+  <circle cx="22.5" cy="10" r="1.75" fill="#67e8f9"/>
+</svg>
