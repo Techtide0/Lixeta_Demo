@@ -10,9 +10,9 @@
  * • The `emitRevenue` / `emitRisk` callbacks are the ONLY side-effect a rule
  *   is permitted to perform. They append to isolated arrays owned by the
  *   engine — rules cannot touch each other's output or global state.
- * • `idempotencyKey` is derived deterministically from event ID + rule ID,
- *   preventing a rule from emitting duplicate records if called twice
- *   (defensive against rule-registry bugs).
+ * • Revenue/risk IDs are assigned by the engine via monotonic counter, so
+ *   calling `evaluateEvent` twice on the same event produces different IDs.
+ *   Do not assume idempotent output — store results from the first call only.
  */
 import type { DomainEvent, SimulationState, RevenueEvent, RiskEvent } from "@lixeta/models";
 import type { EngineConfig } from "./engine-config.js";

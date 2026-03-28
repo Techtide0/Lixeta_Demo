@@ -1,6 +1,6 @@
 /**
  * @file id-generator.ts
- * @description Deterministic, collision-resistant ID generation for engine outputs.
+ * @description Unique, collision-resistant ID generation for engine outputs.
  *
  * Security notes
  * ──────────────

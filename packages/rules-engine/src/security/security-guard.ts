@@ -52,13 +52,6 @@ const DANGEROUS_KEY_PREFIX = "__";
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a new payload object with dangerous keys removed.
- * Operates recursively on nested plain objects.
- *
- * This is a defence-in-depth measure. Rules should never reach into raw
- * payload keys that start with "__", but we strip them anyway.
- */
-/**
  * Sanitize a single value of any type.
  * Plain objects are recursively sanitized; arrays are mapped over so nested
  * objects and arrays-within-arrays are all covered. Primitives pass through.
@@ -80,17 +73,22 @@ function sanitizeObject(
   obj: Readonly<Record<string, unknown>>,
   depth = 0
 ): Readonly<Record<string, unknown>> {
-  // At the recursion limit, do a shallow-only strip of forbidden keys rather
-  // than returning the raw object (which could carry prototype-pollution
-  // vectors) or an empty object (which silently drops legitimate data).
+  // At the recursion limit use JSON.stringify with a replacer to strip
+  // forbidden keys across the entire remaining subtree without further
+  // recursion. This prevents both stack overflow and key-leakage at depth.
   if (depth > 8) {
-    const shallow: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (FORBIDDEN_KEYS.has(key)) continue;
-      if (key.startsWith(DANGEROUS_KEY_PREFIX)) continue;
-      shallow[key] = value;
+    try {
+      const json = JSON.stringify(obj, (key, val) => {
+        // key === "" is the root object — never strip it
+        if (key !== "" && (FORBIDDEN_KEYS.has(key) || key.startsWith(DANGEROUS_KEY_PREFIX))) {
+          return undefined;
+        }
+        return val as unknown;
+      });
+      return JSON.parse(json) as Readonly<Record<string, unknown>>;
+    } catch {
+      return {}; // serialization failed — safe fallback
     }
-    return shallow as Readonly<Record<string, unknown>>;
   }
 
   const result: Record<string, unknown> = {};
