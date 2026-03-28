@@ -100,7 +100,8 @@ export interface Pacs004Input extends PaymentInput {
   readonly returnReason: string;
   /** Message ID of the original pacs.008 being returned */
   readonly originalMsgId: string;
-  /** Transaction ID of the original pacs.008 — required for bank reconciliation */
+  /** Transaction ID of the original pacs.008 (e.g. `TXN-MSG-...`).
+   *  Optional — if omitted, the builder derives it from `originalMsgId`. */
   readonly originalTxId?: string;
 }
 

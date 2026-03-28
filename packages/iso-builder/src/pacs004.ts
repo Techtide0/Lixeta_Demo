@@ -83,8 +83,9 @@ export function buildPacs004(input: Pacs004Input): Pacs004Output {
   const safeReturnLabel = escapeXml(RETURN_REASON_LABELS[input.returnCode] ?? input.returnCode);
   const safeReturnRsn   = escapeXml(input.returnReason.slice(0, 105));
   const safeOrigMsgId   = escapeXml(sanitizeId(input.originalMsgId));
-  // OrgnlTxId links directly to the TxId in the original pacs.008 — critical for bank reconciliation
-  const originalTxId    = input.originalTxId ?? `TXN-${sanitizeId(input.originalMsgId)}`;
+  // OrgnlTxId links directly to the TxId in the original pacs.008 — critical for bank reconciliation.
+  // sanitizeId() is applied whether the value is caller-supplied or derived.
+  const originalTxId    = sanitizeId(input.originalTxId ?? `TXN-${sanitizeId(input.originalMsgId)}`);
   const safeOrigTxId    = escapeXml(originalTxId);
   const bicLine         = safeBic ? `\n              <BICFI>${safeBic}</BICFI>` : "";
 
