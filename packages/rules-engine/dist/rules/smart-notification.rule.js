@@ -30,8 +30,8 @@ import { generateRevenueEventId } from "../utils/id-generator.js";
 // Constants
 // ---------------------------------------------------------------------------
 export const SMART_NOTIFICATION_RULE_ID = "SMART_NOTIFICATION_V1";
-/** Cost of one SMS in kobo (NGN minor units). 1000 kobo = ₦10. */
-const SMS_COST_KOBO = 1_000;
+/** Cost of one SMS in kobo (NGN minor units). 10000 kobo = ₦100. */
+const SMS_COST_KOBO = 10_000;
 // ---------------------------------------------------------------------------
 // Payload helpers
 // ---------------------------------------------------------------------------

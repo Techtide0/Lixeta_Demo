@@ -36,6 +36,7 @@ import { analyticsRouter } from "./routes/analytics.js";
 import { isoRouter } from "./routes/iso.js";
 import { disputeRouter } from "./routes/dispute.js";
 import { docsRouter } from "./routes/docs.js";
+import { simRouter } from "./routes/sim.js";
 import { logger } from "./lib/logger.js";
 
 async function bootstrap(): Promise<void> {
@@ -116,6 +117,10 @@ async function bootstrap(): Promise<void> {
   app.use("/dispute", auth);
   app.use("/dispute", disputeRouter);
 
+  // Simulation feed — rate limited, no auth (demo / projector endpoint)
+  app.use("/sim", limiter);
+  app.use("/sim", simRouter);
+
   // Error handling
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
@@ -133,6 +138,7 @@ async function bootstrap(): Promise<void> {
         "GET  /iso/pacs008",
         "POST /dispute",
         "GET  /docs", "GET  /openapi.yaml",
+        "POST /sim/start", "POST /sim/stop", "GET  /sim/status",
       ],
     });
   });

@@ -680,11 +680,11 @@ components:
         returnCode:
           type: string
           description: "Kill mode only: ISO return code."
-          example: "AM04"
+          example: "AB03"
         returnReason:
           type: string
           description: "Kill mode only: human-readable return reason."
-          example: "Sender account has insufficient funds to complete the transfer"
+          example: "SLA Breach: Transaction failed to reach deterministic finality within the 25.00s threshold. Auto-reversed by Lixeta."
         originalMsgId:
           type: string
           description: "Kill mode only: original message ID being returned."
@@ -1405,7 +1405,7 @@ paths:
         | Mode | Message type | Scenario |
         |------|-------------|---------|
         | `success` | `pacs.008.001.08` | Customer Credit Transfer — ₦1,500.00 NGN |
-        | `kill` | `pacs.004.001.09` | Payment Return — return code `AM04` (Insufficient Funds) |
+        | `kill` | `pacs.004.001.09` | Payment Return — return code `AB03` (SLA Kill-Switch / Settlement Timeout) |
 
         The output is **deterministic**: same mode → same XML → same `inputHash`.
         Verify integrity by recomputing the SHA-256 of the input parameters and
@@ -1535,7 +1535,7 @@ paths:
                       currency: "NGN"
                       latencyMs: 8
                 kill:
-                  summary: "pacs.004.001.09 — Payment Return, AM04 Insufficient Funds"
+                  summary: "pacs.004.001.09 — Payment Return, AB03 SLA Kill-Switch"
                   value:
                     ok: true
                     requestId: "req_def456"
@@ -1572,8 +1572,8 @@ paths:
                               <RtrdIntrBkSttlmAmt Ccy="NGN">1500.00</RtrdIntrBkSttlmAmt>
                               <IntrBkSttlmDt>2026-03-28</IntrBkSttlmDt>
                               <RtrRsnInf>
-                                <Rsn><Cd>AM04</Cd></Rsn>
-                                <AddtlInf>InsufficientFunds: Sender account has insufficient funds to complete the transfer</AddtlInf>
+                                <Rsn><Cd>AB03</Cd></Rsn>
+                                <AddtlInf>SettlementTransactionTimeout: SLA Breach: Transaction failed to reach deterministic finality within the 25.00s threshold. Auto-reversed by Lixeta.</AddtlInf>
                               </RtrRsnInf>
                               <OrgnlTxRef>
                                 <IntrBkSttlmAmt Ccy="NGN">1500.00</IntrBkSttlmAmt>
@@ -1616,8 +1616,8 @@ paths:
                       formattedAmount: "₦1,500.00"
                       currency: "NGN"
                       latencyMs: 11
-                      returnCode: "AM04"
-                      returnReason: "Sender account has insufficient funds to complete the transfer"
+                      returnCode: "AB03"
+                      returnReason: "SLA Breach: Transaction failed to reach deterministic finality within the 25.00s threshold. Auto-reversed by Lixeta."
                       originalMsgId: "MSG-20260328-A1B2C3D4"
         "400":
           description: Invalid `mode` parameter — must be `success` or `kill`.

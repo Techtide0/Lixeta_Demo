@@ -187,3 +187,17 @@ export async function downloadDispute(sessionId: string, eventId: string): Promi
 export async function getHealth() {
   return request<any>('/health');
 }
+
+// --- Simulation controller ---
+
+export async function startSim() {
+  return request<any>('/sim/start', { method: 'POST' });
+}
+
+export async function stopSim() {
+  return request<any>('/sim/stop', { method: 'POST' });
+}
+
+export async function getSimStatus() {
+  return request<any>('/sim/status');
+}

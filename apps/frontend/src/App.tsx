@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Play, Plus, RefreshCw, X, Terminal, BarChart3, Code2,
   Wifi, WifiOff, Loader2, ChevronDown, AlertCircle, FileCode2,
-  CheckCircle2, XCircle, Clock, Layers, Zap
+  CheckCircle2, XCircle, Clock, Layers, Zap, Monitor
 } from 'lucide-react';
+import { LiveDemoView } from '@/components/ui/live-demo';
 
 import { KpiBar, type KpiData } from '@/components/ui/analytics-dashboard';
 import { InteractiveLogsTable, type Log } from '@/components/ui/interactive-logs-table';
@@ -147,6 +148,9 @@ export default function App() {
   const [isSettingAggression, setIsSettingAggression] = useState(false);
   const aggressionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- DEMO MODE ---
+  const [demoMode, setDemoMode] = useState(false);
+
   // --- UI STATE ---
   const [selectedEventType, setSelectedEventType] = useState(EVENT_TYPES[0]);
   const [activeTab, setActiveTab] = useState<Tab>('logs');
@@ -169,8 +173,10 @@ export default function App() {
       setRawAnalytics(analyticsRes);
       setRawLogs(logsRes);
 
-      if (analyticsRes?.data?.kpi) {
-        setKpi(analyticsRes.data.kpi as KpiData);
+      // Analytics route returns { ok, data: SessionAnalytics } — kpi sits under data
+      const kpiRaw = analyticsRes?.data?.kpi ?? analyticsRes?.kpi ?? null;
+      if (kpiRaw) {
+        setKpi(kpiRaw as KpiData);
       }
 
       setLiveLogs(mapBackendLogs(logsRes));
@@ -323,6 +329,10 @@ export default function App() {
   const timelineEntries = mapTimelineEntries(rawLogs);
   const ruleTraces = mapRuleTraces(lastTriggerResult);
 
+  if (demoMode) {
+    return <LiveDemoView onExit={() => setDemoMode(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] text-white flex flex-col">
 
@@ -340,6 +350,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDemoMode(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/60 transition-colors"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              Live Demo
+            </button>
             {backendOnline === true && (
               <div className="flex items-center gap-1.5 text-xs text-green-400">
                 <Wifi className="h-3.5 w-3.5" />
@@ -389,6 +406,13 @@ export default function App() {
             </button>
           </div>
         )}
+
+        {/* SANDBOX NOTICE */}
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-400/80">
+          <span className="flex-shrink-0 font-semibold text-amber-400">SANDBOX DEMO</span>
+          <span className="text-amber-400/60">·</span>
+          <span>This is a sandbox demo — real processor connections and live SMS notifications will be added in Phase 2.</span>
+        </div>
 
         {/* KPI BAR */}
         <section>

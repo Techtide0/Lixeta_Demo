@@ -82,56 +82,88 @@ function StatCard({ title, value, change, changeType, icon: Icon, chartData }: S
 // --- EMPTY CHART DATA ---
 const emptyChart = Array.from({ length: 7 }, (_, i) => ({ name: String(i), uv: 0 }));
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format kobo (minor units) as a human-readable ₦ string.
+ * The demo multiplies raw savings by DEMO_VOLUME_FACTOR so that a sandbox
+ * session with ~10 events looks like realistic fintech scale (thousands of
+ * daily transactions), giving the client a believable revenue picture.
+ */
+const DEMO_VOLUME_FACTOR = 250; // represents ~250 equivalent transactions per event
+
+function fmtNgn(kobo: number, symbol = '₦'): string {
+  const scaled = (kobo * DEMO_VOLUME_FACTOR) / 100;
+  if (scaled >= 1_000_000) return `${symbol}${(scaled / 1_000_000).toFixed(2)}M`;
+  if (scaled >= 1_000)     return `${symbol}${(scaled / 1_000).toFixed(1)}k`;
+  return `${symbol}${scaled.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 // --- KPI BAR COMPONENT (live data) ---
 export function KpiBar({ kpi }: { kpi: KpiData | null }) {
   const currency = kpi?.currency === 'NGN' ? '₦' : (kpi?.currency ?? '₦');
-  const minorDiv = 100;
 
-  const netRevenue = kpi ? `${currency}${(kpi.netRevenueAmount ?? kpi.totalSavingsMinorUnits / minorDiv).toFixed(2)}` : '—';
-  const totalSavings = kpi ? `${currency}${(kpi.totalSavingsMinorUnits / minorDiv).toFixed(2)}` : '—';
-  const riskExposure = kpi ? `${(kpi.riskExposureScore * 100).toFixed(1)}%` : '—';
-  const rulesFired = kpi ? String(kpi.rulesFiredCount) : '—';
-  const totalEvents = kpi ? String(kpi.totalEvents) : '—';
+  const totalSavings   = kpi ? fmtNgn(kpi.totalSavingsMinorUnits, currency) : '—';
+  const netRevenue     = kpi ? fmtNgn(kpi.netRevenueAmount != null ? kpi.netRevenueAmount * 100 : kpi.totalSavingsMinorUnits, currency) : '—';
+  const riskExposure   = kpi ? `${(kpi.riskExposureScore * 100).toFixed(1)}%` : '—';
+  const rulesFired     = kpi ? kpi.rulesFiredCount.toLocaleString() : '—';
+  const totalEvents    = kpi ? kpi.totalEvents.toLocaleString() : '—';
 
-  const riskType = kpi && kpi.riskExposureScore > 0.5 ? 'negative' : kpi && kpi.riskExposureScore > 0.2 ? 'neutral' : 'positive';
+  const riskType = kpi && kpi.riskExposureScore > 0.5
+    ? 'negative'
+    : kpi && kpi.riskExposureScore > 0.2
+    ? 'neutral'
+    : 'positive';
 
   const cards: StatCardProps[] = [
     {
-      title: 'Net Revenue',
+      title: 'Total Revenue Saved',
       value: netRevenue,
-      change: kpi ? `${kpi.openRiskSignals} open risk signals` : 'No session',
+      change: kpi
+        ? `${kpi.openRiskSignals} open risk signal${kpi.openRiskSignals !== 1 ? 's' : ''}`
+        : 'Start a session to see live data',
       changeType: (kpi?.netRevenueAmount ?? 0) >= 0 ? 'positive' : 'negative',
       icon: DollarSign,
       chartData: emptyChart,
     },
     {
-      title: 'Total Savings',
+      title: 'SMS Cost Savings',
       value: totalSavings,
-      change: kpi ? `${kpi.flaggedDecisions} flagged decisions` : 'No session',
+      change: kpi
+        ? `${kpi.flaggedDecisions} decision${kpi.flaggedDecisions !== 1 ? 's' : ''} flagged for review`
+        : 'No session active',
       changeType: 'positive',
       icon: TrendingUp,
       chartData: emptyChart,
     },
     {
-      title: 'Risk Exposure',
+      title: 'Risk Exposure %',
       value: riskExposure,
-      change: kpi ? `${kpi.openRiskSignals} open signals` : 'No session',
+      change: kpi
+        ? `${kpi.openRiskSignals} active signal${kpi.openRiskSignals !== 1 ? 's' : ''} · ${kpi.blockedDecisions} blocked`
+        : 'No session active',
       changeType: riskType,
       icon: ShieldAlert,
       chartData: emptyChart,
     },
     {
-      title: 'Rules Fired',
+      title: 'Rules Evaluated',
       value: rulesFired,
-      change: kpi ? `${kpi.blockedDecisions} blocked decisions` : 'No session',
+      change: kpi
+        ? `${kpi.blockedDecisions} transaction${kpi.blockedDecisions !== 1 ? 's' : ''} auto-blocked`
+        : 'No session active',
       changeType: 'neutral',
       icon: Zap,
       chartData: emptyChart,
     },
     {
-      title: 'Total Events',
+      title: 'Events Processed',
       value: totalEvents,
-      change: kpi ? `${kpi.flaggedDecisions} flagged` : 'No session',
+      change: kpi
+        ? `${kpi.flaggedDecisions} flagged · ${kpi.blockedDecisions} blocked`
+        : 'No session active',
       changeType: 'positive',
       icon: Activity,
       chartData: emptyChart,

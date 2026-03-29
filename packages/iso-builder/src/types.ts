@@ -70,23 +70,27 @@ export interface Pacs008Output {
  * Subset of the most common real-world codes.
  */
 export type ReturnCode =
+  | "AB03"  // SettlementTransactionTimeout — SLA breach / routing timeout
   | "AC03"  // InvalidCreditorAccountNumber
   | "AC04"  // ClosedAccountNumber
   | "AC06"  // BlockedAccount
   | "AG01"  // TransactionForbidden
   | "AM04"  // InsufficientFunds
   | "AM09"  // WrongAmount
+  | "DS24"  // RoutingTimeout — alternative SLA/routing timeout code
   | "FF01"  // InvalidFileFormat
   | "NARR"  // Narrative (custom reason)
   | "RR04"; // RegulatoryReason
 
 export const RETURN_REASON_LABELS: Readonly<Record<ReturnCode, string>> = {
+  AB03: "SettlementTransactionTimeout",
   AC03: "InvalidCreditorAccountNumber",
   AC04: "ClosedAccountNumber",
   AC06: "BlockedAccount",
   AG01: "TransactionForbidden",
   AM04: "InsufficientFunds",
   AM09: "WrongAmount",
+  DS24: "RoutingTimeout",
   FF01: "InvalidFileFormat",
   NARR: "Narrative",
   RR04: "RegulatoryReason",

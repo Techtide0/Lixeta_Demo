@@ -48,8 +48,8 @@ const KILL_FIXTURE = {
   // Preserve the original EndToEndId — it must flow unchanged across the
   // full payment lifecycle (pacs.008 → pacs.004) for bank reconciliation.
   endToEndId: _successRef.endToEndId,
-  returnCode: "AM04" as const,  // InsufficientFunds
-  returnReason: "Sender account has insufficient funds to complete the transfer",
+  returnCode: "AB03" as const,  // SettlementTransactionTimeout — SLA breach
+  returnReason: "SLA Breach: Transaction failed to reach deterministic finality within the 25.00s threshold. Auto-reversed by Lixeta.",
   originalMsgId: _successRef.msgId,
   originalTxId: `TXN-${_successRef.msgId}`,
 } as const;
