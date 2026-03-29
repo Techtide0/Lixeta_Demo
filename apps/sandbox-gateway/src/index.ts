@@ -117,8 +117,9 @@ async function bootstrap(): Promise<void> {
   app.use("/dispute", auth);
   app.use("/dispute", disputeRouter);
 
-  // Simulation feed — rate limited, no auth (demo / projector endpoint)
+  // Simulation feed — rate limited + auth
   app.use("/sim", limiter);
+  app.use("/sim", auth);
   app.use("/sim", simRouter);
 
   // Error handling
