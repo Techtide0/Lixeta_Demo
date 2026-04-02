@@ -238,7 +238,7 @@ export const smartNotificationRule: Rule = {
         actions
       );
 
-      return { trace, verdictContribution: allowContribution() };
+      return { trace, verdictContribution: allowContribution(`SMS suppressed — in-app notification sent. ₦${(SMS_COST_KOBO / 100).toFixed(2)} saved.`) };
 
     } else {
       // ── App is CLOSED: SMS will be sent; track the cost ──

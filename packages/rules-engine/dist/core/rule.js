@@ -25,8 +25,8 @@
 // ---------------------------------------------------------------------------
 // Outcome helpers
 // ---------------------------------------------------------------------------
-export function allowContribution() {
-    return { type: "allow" };
+export function allowContribution(reason) {
+    return { type: "allow", reason };
 }
 export function blockContribution(reason) {
     return { type: "block", reason };

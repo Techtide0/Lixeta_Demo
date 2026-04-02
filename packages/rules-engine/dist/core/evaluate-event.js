@@ -189,7 +189,7 @@ function buildDecisionResult(event, meta, contribution, traces, revenueEvents, r
         succeeded: a.executed && a.errorMessage === undefined,
         ...(a.errorMessage !== undefined ? { errorMessage: a.errorMessage } : {}),
     })));
-    const { verdict, reason } = contributionToVerdict(contribution, event.id);
+    const { verdict, reason } = contributionToVerdict(contribution);
     const base = {
         decisionId: meta.decisionId,
         sourceEventId: event.id,
@@ -211,7 +211,7 @@ function buildDecisionResult(event, meta, contribution, traces, revenueEvents, r
     }
     return base;
 }
-function contributionToVerdict(contribution, eventId) {
+function contributionToVerdict(contribution) {
     switch (contribution.type) {
         case "block":
             return { verdict: "block", reason: contribution.reason };
@@ -220,10 +220,11 @@ function contributionToVerdict(contribution, eventId) {
         case "transform":
             return { verdict: "transform", reason: "Payload transformed by rule" };
         case "defer":
-            return { verdict: "defer", reason: `Event ${eventId} deferred` };
+            return { verdict: "defer", reason: contribution.reason ?? "Message scheduled for next active delivery window." };
         case "allow":
+            return { verdict: "allow", reason: contribution.reason ?? "Event cleared by rules engine" };
         case "no_opinion":
-            return { verdict: "allow", reason: "No rule blocked or flagged this event" };
+            return { verdict: "allow", reason: "Event cleared by rules engine" };
     }
 }
 function computeConfidence(traces) {

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Play, Plus, RefreshCw, X, Terminal, BarChart3, Code2,
   Wifi, WifiOff, Loader2, ChevronDown, AlertCircle, FileCode2,
-  CheckCircle2, XCircle, Clock, Layers, Zap, Monitor
+  CheckCircle2, XCircle, Clock, Layers, Zap, Monitor, Square, Radio
 } from 'lucide-react';
 import { LiveDemoView } from '@/components/ui/live-demo';
 
@@ -148,6 +148,10 @@ export default function App() {
   const [isSettingAggression, setIsSettingAggression] = useState(false);
   const aggressionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- SIMULATE TRAFFIC ---
+  const [simRunning, setSimRunning] = useState(false);
+  const [isTogglingSim, setIsTogglingSim] = useState(false);
+
   // --- DEMO MODE ---
   const [demoMode, setDemoMode] = useState(false);
 
@@ -195,6 +199,24 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, [sessionId, sessionStatus, refreshData]);
+
+  // --- SIM ROTATION: follow session rotation while simulate traffic is running ---
+  useEffect(() => {
+    if (!simRunning) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getSimStatus();
+        const liveSid: string | null = res?.data?.sessionId ?? null;
+        if (liveSid && liveSid !== sessionId) {
+          setSessionId(liveSid);
+          setSessionStatus('active');
+        }
+      } catch { /* ignore */ }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [simRunning, sessionId]);
 
   // --- CREATE SESSION ---
   const handleCreateSession = async () => {
@@ -251,6 +273,37 @@ export default function App() {
       setError(err.message ?? 'Failed to close session');
     } finally {
       setIsClosingSession(false);
+    }
+  };
+
+  // --- SIMULATE TRAFFIC TOGGLE ---
+  const handleToggleSim = async () => {
+    setError(null);
+    setIsTogglingSim(true);
+    try {
+      if (simRunning) {
+        await api.stopSim();
+        setSimRunning(false);
+      } else {
+        const res = await api.startSim();
+        const sid = res?.data?.sessionId;
+        if (!sid) throw new Error('No session ID from sim');
+        setSessionId(sid);
+        setSessionStatus('active');
+        setSessionCreatedAt(null);
+        setKpi(null);
+        setLiveLogs([]);
+        setRawAnalytics(null);
+        setRawLogs(null);
+        setLastTriggerResult(null);
+        setAggressionLevel(50);
+        setSimRunning(true);
+        setBackendOnline(true);
+      }
+    } catch (err: any) {
+      setError(err.message ?? 'Simulation failed');
+    } finally {
+      setIsTogglingSim(false);
     }
   };
 
@@ -534,6 +587,43 @@ export default function App() {
 
                 {!sessionId && (
                   <p className="text-xs text-gray-600 text-center">Create a session first</p>
+                )}
+              </div>
+            </div>
+
+            {/* Simulate Traffic Card */}
+            <div className="rounded-2xl border border-white/10 bg-gray-800/40 p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">Simulate Traffic</h3>
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Auto-fires real events every 3 s through the live rules engine. KPI cards update automatically.
+                </p>
+                <Button
+                  onClick={handleToggleSim}
+                  disabled={isTogglingSim}
+                  className={`w-full text-white disabled:opacity-40 ${
+                    simRunning
+                      ? 'bg-red-600 hover:bg-red-500'
+                      : 'bg-indigo-600 hover:bg-indigo-500'
+                  }`}
+                  size="sm"
+                >
+                  {isTogglingSim ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />{simRunning ? 'Stopping…' : 'Starting…'}</>
+                  ) : simRunning ? (
+                    <><Square className="h-3.5 w-3.5 mr-2" />Stop Simulation</>
+                  ) : (
+                    <><Radio className="h-3.5 w-3.5 mr-2" />Simulate Traffic</>
+                  )}
+                </Button>
+                {simRunning && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    Live — events firing every 3s
+                  </div>
                 )}
               </div>
             </div>
@@ -926,7 +1016,7 @@ export default function App() {
                     {isoMode === 'success' ? (
                       <span><strong>pacs.008.001.08</strong> — FI-to-FI Customer Credit Transfer. Represents a valid, approved payment flow through the CBN clearing system.</span>
                     ) : (
-                      <span><strong>pacs.004.001.09</strong> — Payment Return. Simulates a rejected transfer (insufficient funds, AM04) — the full reversal message sent back to the originating bank.</span>
+                      <span><strong>pacs.004.001.09</strong> — Payment Return. Simulates an SLA Timeout Breach (AB03) — the kill-switch reversal message sent back to the originating bank.</span>
                     )}
                   </div>
 

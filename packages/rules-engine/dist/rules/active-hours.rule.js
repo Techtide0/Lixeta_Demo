@@ -147,7 +147,7 @@ export const activeHoursRule = {
             const trace = buildTrace(traceId, ctx, "fired", `Message at local hour ${localHour} WAT is outside active window (${ACTIVE_HOUR_START}:00–${ACTIVE_HOUR_END}:59). Deferred to ${deferUntil}.`, conditions, actions);
             return {
                 trace,
-                verdictContribution: { type: "defer", until: deferUntil },
+                verdictContribution: { type: "defer", until: deferUntil, reason: `Message held — sent at ${localHour}:00 WAT, outside active window (8 AM – 8 PM). Scheduled for delivery at 8 AM.` },
             };
         }
         // Within active window — no action needed

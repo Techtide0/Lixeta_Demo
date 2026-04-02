@@ -46,7 +46,7 @@ export interface RuleEvaluationResult {
 }
 
 export type VerdictContribution =
-  | { readonly type: "allow" }
+  | { readonly type: "allow"; readonly reason?: string }
   | { readonly type: "block"; readonly reason: string }
   | { readonly type: "flag"; readonly reason: string }
   | { readonly type: "transform"; readonly payload: Readonly<Record<string, unknown>> }
@@ -96,8 +96,8 @@ export interface Rule {
 // Outcome helpers
 // ---------------------------------------------------------------------------
 
-export function allowContribution(): VerdictContribution {
-  return { type: "allow" };
+export function allowContribution(reason?: string): VerdictContribution {
+  return { type: "allow", reason };
 }
 
 export function blockContribution(reason: string): VerdictContribution {
