@@ -55,8 +55,12 @@ const statusStyles: Record<string, string> = {
 };
 
 function LogRow({ log, expanded, onToggle }: { log: Log; expanded: boolean; onToggle: () => void }) {
-  const formattedTime = new Date(log.timestamp).toLocaleTimeString("en-US", {
+  const parsedDate   = new Date(log.timestamp);
+  const formattedTime = parsedDate.toLocaleTimeString("en-NG", {
     hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const formattedFull = parsedDate.toLocaleString("en-NG", {
+    dateStyle: "medium", timeStyle: "medium",
   });
 
   return (
@@ -111,11 +115,7 @@ function LogRow({ log, expanded, onToggle }: { log: Log; expanded: boolean; onTo
                 </div>
                 <div>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timestamp</p>
-                  <p className="font-mono text-xs text-foreground">
-                    {new Date(log.timestamp).toLocaleString("en-NG", {
-                      dateStyle: "medium", timeStyle: "medium",
-                    })}
-                  </p>
+                  <p className="font-mono text-xs text-foreground">{formattedFull}</p>
                 </div>
               </div>
               <div>
